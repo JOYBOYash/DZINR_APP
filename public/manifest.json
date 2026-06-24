@@ -1,0 +1,28 @@
+{
+  "short_name": "Dzinr",
+  "name": "Dzinr Design Feedback",
+  "description": "Swipe, score, and refine designs with client feedback.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#2b313f",
+  "theme_color": "#ff2d51",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

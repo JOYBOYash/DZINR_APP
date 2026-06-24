@@ -1,0 +1,6 @@
+{
+  "name": "Dzinr",
+  "description": "A swipe-based design feedback platform to share designs, swipe on others, get scores, and receive real-time community reviews.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

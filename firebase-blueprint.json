@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "users": {
+      "title": "users",
+      "description": "User profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "username": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "role": { "type": "string" },
+        "inspirationStyles": { "type": "array", "items": { "type": "string" } },
+        "preferredFormats": { "type": "array", "items": { "type": "string" } },
+        "goals": { "type": "array", "items": { "type": "string" } },
+        "discoverySource": { "type": "string" },
+        "onboardingCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "email",
+        "username",
+        "role",
+        "inspirationStyles",
+        "preferredFormats",
+        "goals",
+        "discoverySource",
+        "onboardingCompleted",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "users",
+      "description": "A single user profile with recommendation-ready onboarding data"
+    }
+  }
+}

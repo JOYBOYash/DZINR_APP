@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net:
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Is valid identifier ID checker helper:
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Helper to fetch request payload:
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Helper to fetch existing state data:
+    function existing() {
+      return resource.data;
+    }
+
+    // Helper to check standard sign in:
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Rule validation schema for User profile:
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'username', 'createdAt']) 
+        && data.keys().size() >= 4 && data.keys().size() <= 6
+        && data.id == request.auth.uid
+        && data.email is string && data.email.size() <= 128
+        && data.username is string && data.username.size() >= 3 && data.username.size() <= 32
+        && (!data.keys().contains('bio') || data.bio == null || (data.bio is string && data.bio.size() <= 500))
+        && (!data.keys().contains('avatarUrl') || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 2048));
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isSignedIn() && userId == request.auth.uid && isValidId(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && userId == request.auth.uid && isValidId(userId) && isValidUser(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt;
+    }
+  }
+}
