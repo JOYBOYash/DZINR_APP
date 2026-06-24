@@ -10,6 +10,22 @@ export interface UserProfile {
   goals: string[];
   discoverySource: string;
   onboardingCompleted: boolean;
+  profileCompleted?: boolean;
+  portfolioUrl?: string;
+  integrations?: {
+    figma?: {
+      connected: boolean;
+      username?: string;
+      accessToken?: string;
+      connectedAt?: string;
+    };
+    [key: string]: any;
+  };
+  stats?: {
+    uploads: number;
+    swipes: number;
+    rating: number;
+  };
   createdAt: string;
 }
 

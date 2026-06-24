@@ -19,7 +19,7 @@ if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
-        console.log('Dzinr Service Worker registered successfully:', registration.scope);
+        // Service worker registered
       })
       .catch((error) => {
         console.error('Service Worker registration failed:', error);

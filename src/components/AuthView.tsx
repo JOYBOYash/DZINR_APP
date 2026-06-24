@@ -112,6 +112,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
               <img
                 src={lastUser.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${lastUser.id}`}
                 alt={lastUser.username}
+                referrerPolicy="no-referrer"
                 className="w-8 h-8 rounded-sm bg-[#ff2d51]/10 border border-black/10 shrink-0"
               />
               <div>

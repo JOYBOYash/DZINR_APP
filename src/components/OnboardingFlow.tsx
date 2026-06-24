@@ -271,6 +271,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 <img
                   src={lastUser.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${lastUser.id}`}
                   alt={lastUser.username}
+                  referrerPolicy="no-referrer"
                   className="w-8 h-8 rounded-sm bg-[#ff2d51]/10 border border-black/10 shrink-0"
                 />
                 <div>
@@ -311,7 +312,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             className={`w-full max-w-xs mt-8 p-4 border-[1.5px] rounded-sm text-left shadow-md transition-all ${
               theme === 'dark' 
                 ? 'bg-[#2b313f]/40 border-white/10 text-[#F8FAFC]' 
-                : 'bg-[#fcf5e2]/80 border-[#2b313f]/15 text-[#2b313f]'
+                : 'bg-[#e4efff]/80 border-[#2b313f]/15 text-[#2b313f]'
             }`}
           >
             <div className="flex items-start gap-3">

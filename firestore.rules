@@ -1,13 +1,85 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read: if true;
-      allow create, update: if request.auth != null && request.auth.uid == userId;
-    }
-    
+    // 1. Global Safety Net (First Rule Block)
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definitions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ID verification regex
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprint for Users
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.email is string && data.email.size() <= 256
+        && data.username is string && data.username.size() <= 64
+        && (data.bio == null || (data.bio is string && data.bio.size() <= 200))
+        && (data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1024))
+        && data.role is string && data.role.size() <= 128
+        && data.inspirationStyles is list && data.inspirationStyles.size() <= 20
+        && data.preferredFormats is list && data.preferredFormats.size() <= 20
+        && data.goals is list && data.goals.size() <= 20
+        && data.discoverySource is string && data.discoverySource.size() <= 128
+        && data.onboardingCompleted is bool
+        && (data.profileCompleted == null || data.profileCompleted is bool)
+        && (data.portfolioUrl == null || (data.portfolioUrl is string && data.portfolioUrl.size() <= 512))
+        && (data.integrations == null || data.integrations is map)
+        && (data.stats == null || data.stats is map)
+        && data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    // Validation Blueprint for Projects
+    function isValidProject(data) {
+      return data.id is string && data.id.size() <= 256
+        && data.userId is string && data.userId.size() <= 128
+        && data.title is string && data.title.size() <= 1024
+        && data.description is string && data.description.size() <= 8192
+        && data.imageUrl is string && data.imageUrl.size() <= 8192
+        && (data.figmaUrl == null || (data.figmaUrl is string && data.figmaUrl.size() <= 8192))
+        && (data.embedUrl == null || (data.embedUrl is string && data.embedUrl.size() <= 8192))
+        && data.category is string && data.category.size() <= 256
+        && data.likes is int
+        && data.createdAt is string && data.createdAt.size() <= 128
+        && (data.tags == null || (data.tags is list && data.tags.size() <= 20))
+        && (data.inspirationStyles == null || (data.inspirationStyles is list && data.inspirationStyles.size() <= 20))
+        && (data.preferredFormats == null || (data.preferredFormats is list && data.preferredFormats.size() <= 20));
+    }
+
+    // Match blocks
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && isValidId(userId);
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && isValidId(userId);
+      allow delete: if false;
+    }
+
+    match /user_secrets/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
+    }
+
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidProject(incoming()) && isValidId(projectId);
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid && isValidProject(incoming()) && isValidId(projectId);
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid && isValidId(projectId);
     }
   }
 }

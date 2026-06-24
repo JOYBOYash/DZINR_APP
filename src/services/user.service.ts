@@ -65,5 +65,34 @@ export const userService = {
       handleFirestoreError(err, OperationType.LIST, 'users');
       return false;
     }
+  },
+
+  /**
+   * Saves a user secret securely in a restricted separate collection.
+   */
+  async saveUserSecret(userId: string, secretData: { figmaAccessToken?: string }): Promise<void> {
+    try {
+      const docRef = doc(db, 'user_secrets', userId);
+      await setDoc(docRef, secretData, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `user_secrets/${userId}`);
+    }
+  },
+
+  /**
+   * Retrieves a user secret. Only readable by the authenticated owner.
+   */
+  async getUserSecret(userId: string): Promise<{ figmaAccessToken?: string } | null> {
+    try {
+      const docRef = doc(db, 'user_secrets', userId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as { figmaAccessToken?: string };
+      }
+      return null;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `user_secrets/${userId}`);
+      return null;
+    }
   }
 };

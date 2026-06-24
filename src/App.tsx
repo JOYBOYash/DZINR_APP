@@ -5,11 +5,15 @@ import { authService } from './services/auth.service';
 import { userService } from './services/user.service';
 import { useAuthStore } from './stores/auth.store';
 import { useOnboardingStore } from './stores/onboarding.store';
+import { useToastStore } from './stores/toast.store';
 import { OnboardingFlow } from './components/OnboardingFlow';
+import { ProfileSetupFlow } from './components/ProfileSetupFlow';
 import { Button } from './components/Button';
 import { LoadingState } from './components/LoadingState';
 import { DashboardView } from './components/DashboardView';
+import { ProjectsView } from './components/ProjectsView';
 import { AuthView } from './components/AuthView';
+import { ToastContainer } from './components/Toast';
 import { 
   Globe, 
   LogOut, 
@@ -27,7 +31,8 @@ import {
   TrendingUp,
   Heart,
   Smartphone,
-  X
+  X,
+  LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -81,10 +86,12 @@ export default function App() {
   } = useAuthStore();
 
   const onboardingStore = useOnboardingStore();
+  const { toasts, removeToast } = useToastStore();
 
   // Navigation states
   const [showSplash, setShowSplash] = useState(true);
   const [showAuthForm, setShowAuthForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState<'profile' | 'projects'>('profile');
   
   // Credentials states
   const [isSignUp, setIsSignUp] = useState(true);
@@ -172,9 +179,7 @@ export default function App() {
   useEffect(() => {
     getRedirectResult(auth)
       .then((result) => {
-        if (result) {
-          console.log("Successfully authenticated via Google redirect:", result.user);
-        }
+        // Automatically handled by authStateListener above
       })
       .catch((err) => {
         console.warn("Google Redirect auth error or cancellation detected:", err);
@@ -484,10 +489,10 @@ export default function App() {
           : 'bg-[#e4efff] text-[#2b313f]'
       }`}
     >
-      {/* 1. HEADER Segment */}
+      {/* 1. HEADER Segment (Hidden on mobile if authenticated) */}
       <nav 
         id="theme-header-navigator"
-        className={`${isAuthenticated ? 'flex' : 'hidden md:flex'} w-full px-6 md:px-12 py-5 justify-between items-center z-20 border-b ${
+        className={`${isAuthenticated ? 'hidden md:flex' : 'hidden md:flex'} w-full px-6 md:px-12 py-5 justify-between items-center z-20 border-b ${
           theme === 'dark' ? 'border-white/5 bg-[#2b313f]/80' : 'border-black/5 bg-[#e4efff]/80'
         } backdrop-blur-md sticky top-0`}
       >
@@ -506,6 +511,32 @@ export default function App() {
             className={`w-8 h-8 transition-all duration-300 ${theme === 'dark' ? 'bg-white' : 'bg-[#ff2d51]'}`}
           />
           <span className="text-lg font-black tracking-tighter uppercase font-space select-none">Dzinr</span>
+          {isAuthenticated && (
+            <div className="flex items-center gap-4 sm:gap-6 ml-6 sm:ml-8 border-l border-white/10 pl-4 sm:pl-6">
+              <button
+                id="header-nav-profile"
+                onClick={() => setCurrentPage('profile')}
+                className={`text-[10px] sm:text-xs font-space font-black uppercase tracking-widest transition-all cursor-pointer pb-1 border-b-2 ${
+                  currentPage === 'profile' 
+                    ? 'text-[#ff2d51] border-[#ff2d51]' 
+                    : 'border-transparent opacity-65 hover:opacity-100'
+                }`}
+              >
+                Profile
+              </button>
+              <button
+                id="header-nav-projects"
+                onClick={() => setCurrentPage('projects')}
+                className={`text-[10px] sm:text-xs font-space font-black uppercase tracking-widest transition-all cursor-pointer pb-1 border-b-2 ${
+                  currentPage === 'projects' 
+                    ? 'text-[#ff2d51] border-[#ff2d51]' 
+                    : 'border-transparent opacity-65 hover:opacity-100'
+                }`}
+              >
+                Projects
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -539,22 +570,69 @@ export default function App() {
         </div>
       </nav>
 
+      {/* MOBILE BOTTOM NAVIGATION */}
+      {isAuthenticated && (
+        <nav className={`md:hidden fixed bottom-0 left-0 right-0 z-40 border-t flex items-center justify-around px-4 py-3 pb-safe ${
+          theme === 'dark' ? 'bg-[#2b313f]/90 border-white/10' : 'bg-[#e4efff]/90 border-black/10'
+        } backdrop-blur-md`}>
+          <button
+            onClick={() => setCurrentPage('profile')}
+            className={`flex flex-col items-center gap-1 transition-colors ${
+              currentPage === 'profile' ? 'text-[#ff2d51]' : (theme === 'dark' ? 'text-white/50 hover:text-white' : 'text-black/50 hover:text-black')
+            }`}
+          >
+            <User size={20} className={currentPage === 'profile' ? 'fill-current' : ''} />
+            <span className="text-[9px] font-space font-black uppercase tracking-wider">Profile</span>
+          </button>
+          <button
+            onClick={() => setCurrentPage('projects')}
+            className={`flex flex-col items-center gap-1 transition-colors ${
+              currentPage === 'projects' ? 'text-[#ff2d51]' : (theme === 'dark' ? 'text-white/50 hover:text-white' : 'text-black/50 hover:text-black')
+            }`}
+          >
+            <LayoutGrid size={20} className={currentPage === 'projects' ? 'fill-current' : ''} />
+            <span className="text-[9px] font-space font-black uppercase tracking-wider">Projects</span>
+          </button>
+        </nav>
+      )}
+
       {/* 2. MAIN LAYOUT CONTAINER */}
       <main className={`flex-1 w-full relative z-10 flex flex-col items-center justify-center ${
         isAuthenticated 
-          ? 'max-w-7xl mx-auto px-4 md:px-12 py-6' 
+          ? 'max-w-7xl mx-auto px-4 md:px-12 py-6 pb-24 md:pb-6' // Extra padding bottom on mobile for nav
           : 'px-0 py-0 md:px-12 md:py-6 md:max-w-7xl md:mx-auto'
       }`}>
         
-        {/* VIEW A: AUTHENTICATED USER HOME DASHBOARD */}
+        {/* VIEW A: AUTHENTICATED USER HOME DASHBOARD OR PROFILE SETUP FLOW */}
         {isAuthenticated && (
-          <DashboardView
-            user={user}
-            firebaseUser={firebaseUser}
-            theme={theme}
-            deferredPrompt={deferredPrompt}
-            installApp={installApp}
-          />
+          <>
+            {user && !user.profileCompleted ? (
+              <ProfileSetupFlow
+                user={user}
+                theme={theme}
+                onComplete={(updatedUser) => {
+                  setUser(updatedUser);
+                }}
+              />
+            ) : currentPage === 'projects' ? (
+              <ProjectsView
+                user={user!}
+                theme={theme}
+                onBackToProfile={() => setCurrentPage('profile')}
+              />
+            ) : (
+              <DashboardView
+                user={user!}
+                firebaseUser={firebaseUser}
+                theme={theme}
+                deferredPrompt={deferredPrompt}
+                installApp={installApp}
+                onViewAllProjects={() => setCurrentPage('projects')}
+                onLogout={() => setShowLogoutConfirm(true)}
+                onToggleTheme={toggleTheme}
+              />
+            )}
+          </>
         )}
 
         {/* VIEW B: NON-AUTHENTICATED OR INTERRUPTED SYSTEM ONBOARDING FLOW */}
@@ -663,7 +741,7 @@ export default function App() {
               className={`relative z-10 w-full max-w-sm p-6 md:p-8 border-[1.5px] rounded-sm shadow-2xl ${
                 theme === 'dark'
                   ? 'bg-[#2b313f] border-white/15 text-[#F8FAFC]'
-                  : 'bg-[#fcf5e2] border-[#2b313f]/25 text-[#2b313f]'
+                  : 'bg-[#e4efff] border-[#2b313f]/25 text-[#2b313f]'
               }`}
             >
               <div className="flex flex-col items-center text-center gap-5">
@@ -736,7 +814,7 @@ export default function App() {
               className={`relative z-10 w-full max-w-sm p-6 md:p-8 border-[1.5px] rounded-sm shadow-2xl ${
                 theme === 'dark'
                   ? 'bg-[#2b313f] border-white/15 text-[#F8FAFC]'
-                  : 'bg-[#fcf5e2] border-[#2b313f]/25 text-[#2b313f]'
+                  : 'bg-[#e4efff] border-[#2b313f]/25 text-[#2b313f]'
               }`}
             >
               {/* Close Button */}
@@ -837,7 +915,7 @@ export default function App() {
               className={`relative z-10 w-full max-w-sm p-6 md:p-8 border-[1.5px] rounded-sm shadow-2xl ${
                 theme === 'dark'
                   ? 'bg-[#2b313f] border-white/15 text-[#F8FAFC]'
-                  : 'bg-[#fcf5e2] border-[#2b313f]/25 text-[#2b313f]'
+                  : 'bg-[#e4efff] border-[#2b313f]/25 text-[#2b313f]'
               }`}
             >
               {/* Close Button */}
@@ -904,6 +982,8 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

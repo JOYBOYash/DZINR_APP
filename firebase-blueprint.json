@@ -16,6 +16,16 @@
         "goals": { "type": "array", "items": { "type": "string" } },
         "discoverySource": { "type": "string" },
         "onboardingCompleted": { "type": "boolean" },
+        "profileCompleted": { "type": "boolean" },
+        "portfolioUrl": { "type": "string" },
+        "integrations": {
+          "type": "object",
+          "description": "Third-party platform synchronization state, e.g., Figma"
+        },
+        "stats": {
+          "type": "object",
+          "description": "User engagement stats metrics"
+        },
         "createdAt": { "type": "string" }
       },
       "required": [
@@ -30,12 +40,43 @@
         "onboardingCompleted",
         "createdAt"
       ]
+    },
+    "projects": {
+      "title": "projects",
+      "description": "User synced portfolio design projects, primarily Figma syncs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "figmaUrl": { "type": "string" },
+        "embedUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "likes": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "description",
+        "imageUrl",
+        "category",
+        "likes",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
     "users/{userId}": {
       "schema": "users",
       "description": "A single user profile with recommendation-ready onboarding data"
+    },
+    "projects/{projectId}": {
+      "schema": "projects",
+      "description": "A design project belonging to a user, which can have Figma embeds and categories"
     }
   }
 }
