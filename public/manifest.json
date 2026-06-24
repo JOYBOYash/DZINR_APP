@@ -4,6 +4,11 @@
   "description": "Swipe, score, and refine designs with client feedback.",
   "icons": [
     {
+      "src": "/favicon.ico",
+      "type": "image/x-icon",
+      "sizes": "64x64 32x32 24x24 16x16"
+    },
+    {
       "src": "/icon.svg",
       "type": "image/svg+xml",
       "sizes": "512x512",

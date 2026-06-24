@@ -1,5 +1,5 @@
 import React, { useState, useEffect, FormEvent } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { authService } from './services/auth.service';
 import { userService } from './services/user.service';
@@ -25,7 +25,9 @@ import {
   Compass,
   Award,
   TrendingUp,
-  Heart
+  Heart,
+  Smartphone,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -109,6 +111,9 @@ export default function App() {
   // PWA Prompt status
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isPwaInstalled, setIsPwaInstalled] = useState(false);
+  const [showPostLoginInstallPopup, setShowPostLoginInstallPopup] = useState(false);
+  const [showRetryLoginPopup, setShowRetryLoginPopup] = useState(false);
+  const [retryLoginErrorMessage, setRetryLoginErrorMessage] = useState<string | null>(null);
 
   // Splash Screen Timeout (lasting 6.5 seconds with animation)
   useEffect(() => {
@@ -163,6 +168,29 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Monitor Google redirect results for errors/successes
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log("Successfully authenticated via Google redirect:", result.user);
+        }
+      })
+      .catch((err) => {
+        console.warn("Google Redirect auth error or cancellation detected:", err);
+        // User clicked off, closed, or redirect failed:
+        // 1. Transfer to login page safely
+        setShowAuthForm(true);
+        setIsSignUp(false);
+        // 2. Clear any loading states
+        setLoading(false);
+        setActionLoading(false);
+        // 3. Trigger the retry login popup
+        setRetryLoginErrorMessage(getFriendlyAuthError(err));
+        setShowRetryLoginPopup(true);
+      });
+  }, []);
+
   // Monitor PWA installation hooks
   useEffect(() => {
     const catchPrompt = (e: any) => {
@@ -186,6 +214,25 @@ export default function App() {
       window.removeEventListener('appinstalled', onAppInstalled);
     };
   }, []);
+
+  // Trigger PWA install popup after logging in if they haven't installed yet
+  useEffect(() => {
+    const isUserAuth = !!firebaseUser && !!user && !onboardingRequired;
+    if (isUserAuth && !isPwaInstalled) {
+      const dismissed = localStorage.getItem('dzinr_pwa_install_popup_dismissed') === 'true';
+      if (!dismissed) {
+        const isMobile = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (deferredPrompt || isMobile) {
+          const timer = setTimeout(() => {
+            setShowPostLoginInstallPopup(true);
+          }, 1500); // 1.5 seconds delay so they land on dashboard nicely first
+          return () => clearTimeout(timer);
+        }
+      }
+    } else {
+      setShowPostLoginInstallPopup(false);
+    }
+  }, [firebaseUser, user, onboardingRequired, isPwaInstalled, deferredPrompt]);
 
   // Create profile and save onboarding options to Firestore
   const handleSyncOnboardingWithFirestore = async (fbUser: any, oStore: any) => {
@@ -251,13 +298,19 @@ export default function App() {
   const handleGoogleSignIn = async () => {
     try {
       setError(null);
+      setFormError(null);
       setActionLoading(true);
       setLoadingMessage("Connecting to Google");
       setLoading(true);
       await authService.signInWithGoogle();
     } catch (err: any) {
-      console.error(err);
-      setError(getFriendlyAuthError(err));
+      console.error("Popup login error caught:", err);
+      // Transfer safely to login page
+      setShowAuthForm(true);
+      setIsSignUp(false);
+      // Trigger the retry login popup modal
+      setRetryLoginErrorMessage(getFriendlyAuthError(err));
+      setShowRetryLoginPopup(true);
       setLoading(false);
     } finally {
       setActionLoading(false);
@@ -518,6 +571,9 @@ export default function App() {
                     theme={theme}
                     lastUser={lastUser}
                     onToggleTheme={toggleTheme}
+                    deferredPrompt={deferredPrompt}
+                    isPwaInstalled={isPwaInstalled}
+                    onInstallPwa={installApp}
                     onContinueAs={async () => {
                       if (lastUser?.providerId === 'google.com') {
                         await handleGoogleSignIn();
@@ -649,6 +705,198 @@ export default function App() {
                     }`}
                   >
                     Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showPostLoginInstallPopup && (
+          <div 
+            id="pwa-install-popup-overlay"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            {/* Backdrop with standard DZINR styling */}
+            <div 
+              id="pwa-install-popup-backdrop"
+              onClick={() => {
+                setShowPostLoginInstallPopup(false);
+                localStorage.setItem('dzinr_pwa_install_popup_dismissed', 'true');
+              }}
+              className="absolute inset-0 bg-[#000000]/70 backdrop-blur-md"
+            />
+            
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 15 }}
+              transition={{ type: "spring", damping: 25, stiffness: 350 }}
+              className={`relative z-10 w-full max-w-sm p-6 md:p-8 border-[1.5px] rounded-sm shadow-2xl ${
+                theme === 'dark'
+                  ? 'bg-[#2b313f] border-white/15 text-[#F8FAFC]'
+                  : 'bg-[#fcf5e2] border-[#2b313f]/25 text-[#2b313f]'
+              }`}
+            >
+              {/* Close Button */}
+              <button
+                id="pwa-install-popup-close-btn"
+                type="button"
+                onClick={() => {
+                  setShowPostLoginInstallPopup(false);
+                  localStorage.setItem('dzinr_pwa_install_popup_dismissed', 'true');
+                }}
+                className={`absolute top-4 right-4 p-1.5 rounded-full border transition-all active:scale-95 flex items-center justify-center ${
+                  theme === 'dark'
+                    ? 'border-white/10 text-white/60 hover:text-white hover:bg-white/10 bg-white/5'
+                    : 'border-black/10 text-[#2b313f]/60 hover:text-[#2b313f] hover:bg-black/5 bg-black/5'
+                }`}
+              >
+                <X size={14} />
+              </button>
+
+              <div className="flex flex-col items-center text-center gap-5">
+                {/* Visual Icon Badge */}
+                <div className="w-14 h-14 rounded-full bg-[#ff2d51]/10 flex items-center justify-center text-[#ff2d51] mb-1">
+                  <Smartphone size={24} className="animate-bounce" />
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="font-space font-black uppercase text-base tracking-[0.15em] text-[#ff2d51]">
+                    Install Dzinr PWA
+                  </h3>
+                  <p className="text-xs font-space font-semibold uppercase tracking-wider opacity-75">
+                    Synchronize your curated feedback feed with a premium, home-screen-docked desktop & mobile experience.
+                  </p>
+                </div>
+
+                <div className="w-full text-left p-3.5 border border-[#ff2d51]/10 bg-[#ff2d51]/5 rounded-sm">
+                  <p className="text-[10px] font-space font-black uppercase tracking-wider text-[#ff2d51] mb-1">
+                    How to Install:
+                  </p>
+                  <p className="text-[10px] opacity-80 leading-normal">
+                    {typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+                      ? "iOS Safari: Tap the Share icon in your browser toolbar, then select 'Add to Home Screen'."
+                      : "Click 'Install App' below to prompt your browser to install Dzinr as a desktop/mobile app."}
+                  </p>
+                </div>
+
+                {/* Install / Dismiss Options */}
+                <div className="flex flex-col w-full gap-2 mt-2">
+                  {deferredPrompt && (
+                    <button
+                      id="pwa-install-popup-actuate-btn"
+                      onClick={() => {
+                        installApp();
+                        setShowPostLoginInstallPopup(false);
+                      }}
+                      className="w-full h-12 flex items-center justify-center text-[11px] font-space font-black uppercase tracking-widest bg-[#ff2d51] text-white hover:bg-[#ff2d51]/95 active:scale-[0.98] duration-150 rounded-sm cursor-pointer"
+                    >
+                      Install App Now
+                    </button>
+                  )}
+                  <button
+                    id="pwa-install-popup-dismiss-btn"
+                    onClick={() => {
+                      setShowPostLoginInstallPopup(false);
+                      localStorage.setItem('dzinr_pwa_install_popup_dismissed', 'true');
+                    }}
+                    className={`w-full h-12 flex items-center justify-center text-[11px] font-space font-black uppercase tracking-widest border-[1.5px] active:scale-[0.98] duration-150 rounded-sm cursor-pointer ${
+                      theme === 'dark'
+                        ? 'border-white/10 text-[#F8FAFC]/75 hover:bg-white/5'
+                        : 'border-[#2b313f]/15 text-[#2b313f]/75 hover:bg-black/5'
+                    }`}
+                  >
+                    Maybe Later
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showRetryLoginPopup && (
+          <div 
+            id="pwa-retry-login-popup-overlay"
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          >
+            {/* Backdrop */}
+            <div 
+              id="pwa-retry-login-popup-backdrop"
+              onClick={() => setShowRetryLoginPopup(false)}
+              className="absolute inset-0 bg-[#000000]/75 backdrop-blur-md"
+            />
+            
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 15 }}
+              transition={{ type: "spring", damping: 25, stiffness: 350 }}
+              className={`relative z-10 w-full max-w-sm p-6 md:p-8 border-[1.5px] rounded-sm shadow-2xl ${
+                theme === 'dark'
+                  ? 'bg-[#2b313f] border-white/15 text-[#F8FAFC]'
+                  : 'bg-[#fcf5e2] border-[#2b313f]/25 text-[#2b313f]'
+              }`}
+            >
+              {/* Close Button */}
+              <button
+                id="pwa-retry-login-popup-close-btn"
+                type="button"
+                onClick={() => setShowRetryLoginPopup(false)}
+                className={`absolute top-4 right-4 p-1.5 rounded-full border transition-all active:scale-95 flex items-center justify-center ${
+                  theme === 'dark'
+                    ? 'border-white/10 text-white/60 hover:text-white hover:bg-white/10 bg-white/5'
+                    : 'border-black/10 text-[#2b313f]/60 hover:text-[#2b313f] hover:bg-black/5 bg-black/5'
+                }`}
+              >
+                <X size={14} />
+              </button>
+
+              <div className="flex flex-col items-center text-center gap-5">
+                {/* Warning Icon Badge */}
+                <div className="w-14 h-14 rounded-full bg-[#ff2d51]/10 flex items-center justify-center text-[#ff2d51] mb-1">
+                  <Shield size={24} className="animate-pulse" />
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="font-space font-black uppercase text-base tracking-[0.15em] text-[#ff2d51]">
+                    Sign-In Interrupted
+                  </h3>
+                  <p className="text-xs font-space font-semibold uppercase tracking-wider opacity-75">
+                    Your Google authentication was closed or cancelled before it could complete successfully.
+                  </p>
+                </div>
+
+                {retryLoginErrorMessage && (
+                  <div className="w-full p-3 border border-[#ff2d51]/20 bg-[#ff2d51]/5 text-[#ff2d51] text-[10px] font-space font-black uppercase tracking-wider text-left rounded-sm">
+                    {retryLoginErrorMessage}
+                  </div>
+                )}
+
+                {/* Retry Options */}
+                <div className="flex flex-col w-full gap-2 mt-2">
+                  <button
+                    id="pwa-retry-google-btn"
+                    onClick={() => {
+                      setShowRetryLoginPopup(false);
+                      handleGoogleSignIn();
+                    }}
+                    className="w-full h-12 flex items-center justify-center text-[11px] font-space font-black uppercase tracking-widest bg-[#ff2d51] text-white hover:bg-[#ff2d51]/95 active:scale-[0.98] duration-150 rounded-sm cursor-pointer"
+                  >
+                    Retry Google Login
+                  </button>
+                  <button
+                    id="pwa-retry-dismiss-btn"
+                    onClick={() => setShowRetryLoginPopup(false)}
+                    className={`w-full h-12 flex items-center justify-center text-[11px] font-space font-black uppercase tracking-widest border-[1.5px] active:scale-[0.98] duration-150 rounded-sm cursor-pointer ${
+                      theme === 'dark'
+                        ? 'border-white/10 text-[#F8FAFC]/75 hover:bg-white/5'
+                        : 'border-[#2b313f]/15 text-[#2b313f]/75 hover:bg-black/5'
+                    }`}
+                  >
+                    Use Email Instead
                   </button>
                 </div>
               </div>

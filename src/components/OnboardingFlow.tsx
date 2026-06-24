@@ -26,6 +26,9 @@ interface OnboardingFlowProps {
   lastUser?: any;
   onContinueAs?: () => void;
   onToggleTheme?: () => void;
+  deferredPrompt?: any;
+  isPwaInstalled?: boolean;
+  onInstallPwa?: () => void;
 }
 
 const LOGO_URL = "https://dl.dropboxusercontent.com/scl/fi/3i6qc0yyzfvon6amb9md2/DZINR_LOGO.svg?rlkey=yjbgnkegl1ypfa6fr79usjol1";
@@ -156,8 +159,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onGoToLogin,
   lastUser,
   onContinueAs,
-  onToggleTheme
+  onToggleTheme,
+  deferredPrompt,
+  isPwaInstalled = false,
+  onInstallPwa
 }) => {
+  const isIOS = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isMobile = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   const {
     step,
     role,
@@ -293,6 +302,45 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             Already have an account? Sign In
           </button>
         </div>
+
+        {/* PWA ONBOARDING INSTALL ACTION */}
+        {!isPwaInstalled && (deferredPrompt || isMobile) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`w-full max-w-xs mt-8 p-4 border-[1.5px] rounded-sm text-left shadow-md transition-all ${
+              theme === 'dark' 
+                ? 'bg-[#2b313f]/40 border-white/10 text-[#F8FAFC]' 
+                : 'bg-[#fcf5e2]/80 border-[#2b313f]/15 text-[#2b313f]'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#ff2d51]/10 flex items-center justify-center text-[#ff2d51] shrink-0 mt-0.5">
+                <Smartphone size={16} className="animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs font-space font-black uppercase tracking-wider text-[#ff2d51]">
+                  Install Dzinr PWA
+                </h4>
+                <p className="text-[10px] font-space font-semibold uppercase tracking-wider opacity-75 mt-1 leading-normal">
+                  {isIOS 
+                    ? "Tap the Share button in Safari, then select 'Add to Home Screen'."
+                    : "Add Dzinr directly to your mobile home screen for optimal fidelity."}
+                </p>
+                
+                {!isIOS && deferredPrompt && onInstallPwa && (
+                  <button
+                    type="button"
+                    onClick={onInstallPwa}
+                    className="mt-2.5 inline-flex items-center gap-1 text-[10px] font-space font-black uppercase tracking-widest text-[#ff2d51] border-b-[1.5px] border-[#ff2d51] hover:opacity-80 pb-0.5 transition-all"
+                  >
+                    Install Now →
+                  </button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
       </motion.div>
     );
   };
