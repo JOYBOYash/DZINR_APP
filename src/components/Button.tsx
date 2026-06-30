@@ -1,9 +1,9 @@
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'accent-outline';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'disabled';
   loading?: boolean;
-  id: string; // Meaningful unique ID attribute required by guidelines
+  id: string; // Unique ID required by guidelines
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -15,14 +15,17 @@ export const Button: React.FC<ButtonProps> = ({
   id,
   ...props
 }) => {
-  const baseStyle = "w-full py-3.5 px-6 font-space font-bold uppercase text-xs tracking-[0.2em] transition-all flex items-center justify-center gap-2 select-none active:scale-[0.98]";
+  // 18px border radius used for buttons as requested
+  const baseStyle = "px-6 py-3.5 rounded-[18px] font-sans font-medium text-sm tracking-tight transition-all duration-200 flex items-center justify-center gap-2 select-none active:scale-[0.98] outline-none cursor-pointer text-center";
   
   const variants = {
-    primary: "bg-[#ff2d51] text-[#F8FAFC] hover:bg-[#e02043] font-bold accent-glow",
-    secondary: "bg-[#2b313f] text-[#F8FAFC] border border-[#F8FAFC]/20 hover:bg-[#1f242f]",
-    outline: "bg-transparent text-[#2b313f] border-[1.5px] border-[#2b313f] hover:bg-[#2b313f] hover:text-[#F8FAFC]",
-    'accent-outline': "bg-transparent text-[#ff2d51] border-[1.5px] border-[#ff2d51] hover:bg-[#ff2d51] hover:text-[#F8FAFC]"
+    primary: "bg-accent text-white hover:bg-accent-hover shadow-[0_4px_12px_rgba(201,0,35,0.15)] focus:ring-2 focus:ring-accent/40",
+    secondary: "bg-transparent text-[#171717] dark:text-white border border-[#ECECEC] dark:border-white/10 hover:bg-[#F7F7F8] dark:hover:bg-white/5",
+    ghost: "bg-transparent text-[#555555] dark:text-[#D7D7D7] hover:bg-[#F7F7F8] dark:hover:bg-white/5",
+    disabled: "bg-[#E7E7E7] dark:bg-white/5 text-[#888888] dark:text-white/20 cursor-not-allowed pointer-events-none"
   };
+
+  const currentVariant = disabled ? 'disabled' : variant;
 
   const spinner = (
     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
@@ -35,7 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       id={id}
       disabled={disabled || loading}
-      className={`${baseStyle} ${variants[variant]} ${disabled || loading ? 'opacity-55 cursor-not-allowed active:scale-100' : ''} ${className}`}
+      className={`${baseStyle} ${variants[currentVariant]} ${className}`}
       {...props}
     >
       {loading ? spinner : null}

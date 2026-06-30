@@ -19,18 +19,8 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cloudinary credentials (retrieved from Vite environment with NEXT_PUBLIC prefix for Vercel)
-  const rawCloudName = (import.meta as any).env.NEXT_PUBLIC_CLOUD_NAME;
-  const rawUploadPreset = (import.meta as any).env.NEXT_PUBLIC_UPLOAD_PRESET;
-
-  // Strip quotes and trim whitespaces that can occur in some environment parsers
-  const cleanEnvValue = (val?: string) => {
-    if (!val) return '';
-    return val.replace(/^["']|["']$/g, '').trim();
-  };
-
-  const cloudinaryCloudName = cleanEnvValue(rawCloudName);
-  const cloudinaryUploadPreset = cleanEnvValue(rawUploadPreset);
+  const cloudinaryCloudName = ((import.meta as any).env.NEXT_PUBLIC_CLOUD_NAME || '').replace(/^["']|["']$/g, '').trim();
+  const cloudinaryUploadPreset = ((import.meta as any).env.NEXT_PUBLIC_UPLOAD_PRESET || '').replace(/^["']|["']$/g, '').trim();
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -56,7 +46,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 
       // 2. Perform the upload (Cloudinary)
       if (!cloudinaryCloudName || !cloudinaryUploadPreset) {
-        throw new Error('Cloudinary integration is not configured. Please add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET to your environment variables in AI Studio settings.');
+        throw new Error('Cloudinary integration is not configured. Please add NEXT_PUBLIC_CLOUD_NAME and NEXT_PUBLIC_UPLOAD_PRESET to your environment variables in AI Studio settings.');
       }
 
       const formData = new FormData();
@@ -127,12 +117,12 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
         className="relative group flex items-center justify-center"
       >
         <div 
-          className={`w-28 h-28 rounded-full border-[2px] overflow-hidden flex items-center justify-center transition-all duration-300 ${
+          className={`w-28 h-28 rounded-full border-[2px] overflow-hidden flex items-center justify-center transition-all duration-300 bg-accent ${
             dragActive 
-              ? 'border-[#ff2d51] scale-105 shadow-lg shadow-[#ff2d51]/10' 
+              ? 'border-accent scale-105 shadow-lg shadow-accent/10' 
               : theme === 'dark'
-                ? 'border-white/10 hover:border-[#ff2d51]/50 bg-[#2b313f]/60'
-                : 'border-[#2b313f]/15 hover:border-[#ff2d51]/50 bg-[#e4efff]'
+                ? 'border-divider-dark hover:border-accent'
+                : 'border-divider-light hover:border-accent'
           }`}
           onDragEnter={onDrag}
           onDragOver={onDrag}
@@ -147,15 +137,17 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
               className="w-full h-full object-cover select-none"
             />
           ) : (
-            <div className="flex flex-col items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-              <User size={32} className="text-[#ff2d51]/70" />
-            </div>
+            <img 
+              src={theme === 'dark' ? '/avatar-d.svg' : '/avatar-l.svg'}
+              alt="Default Avatar"
+              className="w-full h-full object-cover select-none"
+            />
           )}
 
           {uploading && (
-            <div className="absolute inset-0 bg-[#000000]/65 backdrop-blur-xs flex flex-col items-center justify-center gap-1.5 text-white">
-              <div className="w-5 h-5 border-2 border-t-transparent border-[#ff2d51] rounded-full animate-spin" />
-              <span className="text-[9px] font-mono uppercase tracking-widest text-[#ff2d51]">uploading</span>
+            <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-1.5 text-white">
+              <div className="w-5 h-5 border-2 border-t-transparent border-accent rounded-full animate-spin" />
+              <span className="text-[13px] font-mono tracking-tight text-accent">uploading</span>
             </div>
           )}
         </div>
@@ -165,7 +157,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
             id="remove-avatar-btn"
             type="button"
             onClick={removeAvatar}
-            className="absolute -bottom-1.5 -right-1.5 p-2 bg-[#ff2d51] hover:bg-[#ff2d51]/90 text-white rounded-full border border-[#2b313f] shadow-lg transition-transform active:scale-95 flex items-center justify-center"
+            className="absolute -bottom-1.5 -right-1.5 p-2 bg-accent hover:bg-accent-hover text-white rounded-full border border-divider-light dark:border-divider-dark shadow-lg transition-transform active:scale-95 flex items-center justify-center"
             title="Remove Avatar"
           >
             <Trash2 size={13} />
@@ -174,7 +166,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
       </div>
 
       {/* Upload trigger buttons */}
-      <div className="flex flex-col items-center gap-2 w-full max-w-xs text-center">
+      <div className="flex flex-col items-center gap-2 w-full max-w-xs text-center text-[#171717] dark:text-white">
         <input
           ref={fileInputRef}
           type="file"
@@ -187,35 +179,35 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`h-11 px-5 rounded-sm font-space font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border-[1.5px] transition-all cursor-pointer ${
+          className={`h-11 px-5 rounded-[20px] font-sans font-bold text-[14px] tracking-widest flex items-center justify-center gap-2 border transition-all cursor-pointer ${
             theme === 'dark'
-              ? 'border-white/10 text-[#F8FAFC] hover:bg-white/5 hover:border-white/30'
-              : 'border-[#2b313f]/15 text-[#2b313f] hover:bg-black/5 hover:border-[#2b313f]/30'
+              ? 'border-divider-dark text-white hover:bg-white/5 hover:border-white/30'
+              : 'border-divider-light text-[#171717] hover:bg-black/5 hover:border-accent/30'
           }`}
         >
-          <Upload size={12} className="text-[#ff2d51]" />
+          <Upload size={12} className="text-accent" />
           Choose Avatar
         </button>
 
-        <p className="text-[10px] font-mono uppercase tracking-wider opacity-50 mt-1">
+        <p className="text-[14px] font-mono tracking-tight opacity-50 mt-1">
           Drag & Drop or Click to Upload. Max 2MB (WebP optimized).
         </p>
 
         {error && (
           <div className="flex flex-col gap-2 mt-2 w-full text-left">
-            <div className="flex items-center gap-1.5 text-[9px] font-space font-semibold uppercase tracking-wider text-[#ff2d51]">
+            <div className="flex items-center gap-1.5 text-[13px] font-space font-semibold tracking-tight text-accent">
               <ShieldAlert size={12} className="shrink-0" />
               <span>{error}</span>
             </div>
 
             {/* Cloudinary Preset Troubleshooting Guide */}
             {(error.toLowerCase().includes('preset') || error.toLowerCase().includes('cloudinary')) && (
-              <div className={`p-3.5 border rounded-sm text-[9.5px] leading-relaxed font-space mt-1 ${
+              <div className={`p-3.5 border rounded-[20px] text-[9.5px] leading-relaxed font-space mt-1 ${
                 theme === 'dark'
                   ? 'bg-red-500/5 border-red-500/15 text-red-200/90'
                   : 'bg-red-50/50 border-red-500/15 text-red-900/90'
               }`}>
-                <p className="font-black uppercase tracking-wider text-[#ff2d51] mb-1.5">
+                <p className="font-black tracking-tight text-accent mb-1.5">
                   🛠️ How to Create an Unsigned Upload Preset:
                 </p>
                 <ol className="list-decimal list-inside space-y-1 opacity-90">
@@ -228,7 +220,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
                   <li>Copy the newly generated preset name (e.g., random characters).</li>
                   <li>Open your <code>.env</code> file and update <code>NEXT_PUBLIC_UPLOAD_PRESET</code> with it!</li>
                 </ol>
-                <div className="mt-2 pt-2 border-t border-[#ff2d51]/10 text-[8.5px] font-mono uppercase opacity-75">
+                <div className="mt-2 pt-2 border-t border-accent/10 text-[8.5px] font-mono uppercase opacity-75">
                   Current config: Cloud name = <strong>{cloudinaryCloudName || 'None'}</strong>, Preset = <strong>{cloudinaryUploadPreset || 'None'}</strong>
                 </div>
               </div>

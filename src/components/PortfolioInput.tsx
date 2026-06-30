@@ -19,7 +19,7 @@ const PRESETS: PortfolioPreset[] = [
   { name: 'Webflow', placeholder: 'webflow.com/username', color: '#4353ff' },
   { name: 'Framer', placeholder: 'framer.website/your-design', color: '#00c3ff' },
   { name: 'Notion', placeholder: 'notion.so/workspace/page-id', color: '#000000' },
-  { name: 'Personal Website', placeholder: 'yourname.com', color: '#ff2d51' },
+  { name: 'Personal Website', placeholder: 'yourname.com', color: '#E85002' },
 ];
 
 export const PortfolioInput: React.FC<PortfolioInputProps> = ({
@@ -75,7 +75,7 @@ export const PortfolioInput: React.FC<PortfolioInputProps> = ({
     <div className="w-full flex flex-col gap-6 max-w-sm">
       {/* Quick selection presets */}
       <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-space font-black uppercase tracking-widest text-[#ff2d51]">
+        <label className="text-[14px] font-sans font-semibold tracking-tight text-[#E85002]">
           Select Portfolio Directory
         </label>
         <div className="flex flex-wrap gap-2">
@@ -85,12 +85,12 @@ export const PortfolioInput: React.FC<PortfolioInputProps> = ({
               key={preset.name}
               type="button"
               onClick={() => selectPreset(preset)}
-              className={`h-9 px-3 rounded-full text-[10px] font-space font-black uppercase tracking-wider flex items-center gap-1.5 border transition-all active:scale-95 cursor-pointer ${
+              className={`h-9 px-3 rounded-full text-[14px] font-sans font-bold tracking-wider flex items-center gap-1.5 border transition-all active:scale-95 cursor-pointer ${
                 activePreset === preset.name
-                  ? 'bg-[#ff2d51] border-[#ff2d51] text-white shadow-md'
+                  ? 'bg-[#E85002] border-[#E85002] text-white shadow-md'
                   : theme === 'dark'
-                    ? 'border-white/10 hover:border-[#ff2d51]/50 bg-white/5 text-[#F8FAFC]'
-                    : 'border-[#2b313f]/15 hover:border-[#ff2d51]/50 bg-black/5 text-[#2b313f]'
+                    ? 'border-white/10 hover:border-[#E85002]/50 bg-white/5 text-[#F9F9F9]'
+                    : 'border-[#333333]/15 hover:border-[#E85002]/50 bg-black/5 text-[#333333]'
               }`}
             >
               <Globe size={11} />
@@ -102,7 +102,7 @@ export const PortfolioInput: React.FC<PortfolioInputProps> = ({
 
       {/* Main input group */}
       <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-space font-black uppercase tracking-widest text-[#ff2d51]">
+        <label className="text-[14px] font-sans font-semibold tracking-tight text-[#E85002]">
           Portfolio URL Link
         </label>
         <div className="relative flex items-center">
@@ -114,17 +114,17 @@ export const PortfolioInput: React.FC<PortfolioInputProps> = ({
             type="text"
             value={localUrl}
             onChange={(e) => setLocalUrl(e.target.value)}
-            className={`w-full h-12 pl-11 pr-11 text-xs font-mono font-bold border rounded-sm outline-none transition-all ${
+            className={`w-full h-12 pl-11 pr-11 text-xs font-mono font-bold border rounded-[20px] outline-none transition-all ${
               theme === 'dark'
-                ? 'bg-[#2b313f]/40 border-white/10 text-[#F8FAFC] focus:border-[#ff2d51]/70'
-                : 'bg-white border-[#2b313f]/15 text-[#2b313f] focus:border-[#ff2d51]/70'
+                ? 'bg-transparent border-white/10 text-[#F9F9F9] focus:border-[#E85002]/70'
+                : 'bg-transparent border-[#333333]/15 text-[#333333] focus:border-[#E85002]/70'
             }`}
             placeholder="e.g. behance.net/joyboy_dzinr"
           />
 
           <div className="absolute right-4 flex items-center justify-center">
             {urlError ? (
-              <div className="w-5 h-5 rounded-full bg-[#ff2d51]/10 text-[#ff2d51] flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full bg-[#E85002]/10 text-[#E85002] flex items-center justify-center">
                 <AlertTriangle size={11} strokeWidth={2.5} />
               </div>
             ) : (
@@ -136,26 +136,26 @@ export const PortfolioInput: React.FC<PortfolioInputProps> = ({
         </div>
 
         {urlError ? (
-          <p className="text-[9px] font-space font-semibold uppercase tracking-wider text-[#ff2d51] mt-0.5 pl-1">
+          <p className="text-[13px] font-space font-semibold tracking-tight text-[#E85002] mt-0.5 pl-1">
             {urlError}
           </p>
         ) : (
-          <p className="text-[9px] font-mono uppercase tracking-wider opacity-40 mt-0.5 pl-1">
+          <p className="text-[13px] font-mono tracking-tight opacity-40 mt-0.5 pl-1">
             Will be stored as portfolioUrl inside your user profile.
           </p>
         )}
       </div>
 
       {/* Helper guide box */}
-      <div className="p-4 border border-[#ff2d51]/15 bg-[#ff2d51]/5 rounded-sm flex gap-3">
-        <div className="text-[#ff2d51] shrink-0 mt-0.5">
+      <div className="p-4 border border-[#E85002]/15 bg-[#E85002]/5 rounded-[20px] flex gap-3">
+        <div className="text-[#E85002] shrink-0 mt-0.5">
           <HelpCircle size={15} />
         </div>
         <div className="space-y-1">
-          <p className="text-[10px] font-space font-black uppercase tracking-wider text-[#ff2d51]">
+          <p className="text-[14px] font-sans font-bold tracking-wider text-[#E85002]">
             Curator Advisory
           </p>
-          <p className="text-[9px] leading-relaxed opacity-75">
+          <p className="text-[13px] leading-relaxed opacity-75">
             Dzinr automatically parses links to cache preview shots of your works on Webflow or Behance, accelerating initial curation feedback.
           </p>
         </div>

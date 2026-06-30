@@ -29,36 +29,65 @@ service cloud.firestore {
       return data.id is string && data.id.size() <= 128
         && data.email is string && data.email.size() <= 256
         && data.username is string && data.username.size() <= 64
-        && (data.bio == null || (data.bio is string && data.bio.size() <= 200))
-        && (data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1024))
-        && data.role is string && data.role.size() <= 128
-        && data.inspirationStyles is list && data.inspirationStyles.size() <= 20
-        && data.preferredFormats is list && data.preferredFormats.size() <= 20
-        && data.goals is list && data.goals.size() <= 20
-        && data.discoverySource is string && data.discoverySource.size() <= 128
-        && data.onboardingCompleted is bool
-        && (data.profileCompleted == null || data.profileCompleted is bool)
-        && (data.portfolioUrl == null || (data.portfolioUrl is string && data.portfolioUrl.size() <= 512))
-        && (data.integrations == null || data.integrations is map)
-        && (data.stats == null || data.stats is map)
-        && data.createdAt is string && data.createdAt.size() <= 64;
+        && data.get('role', 'Brand Designer') is string && data.get('role', 'Brand Designer').size() <= 128
+        && data.get('inspirationStyles', []) is list && data.get('inspirationStyles', []).size() <= 20
+        && data.get('preferredFormats', []) is list && data.get('preferredFormats', []).size() <= 20
+        && data.get('goals', []) is list && data.get('goals', []).size() <= 20
+        && data.get('discoverySource', 'Google Search') is string && data.get('discoverySource', 'Google Search').size() <= 128
+        && data.get('onboardingCompleted', true) is bool
+        && (data.get('bio', null) == null || (data.get('bio', '') is string && data.get('bio', '').size() <= 200))
+        && (data.get('avatarUrl', null) == null || (data.get('avatarUrl', '') is string && data.get('avatarUrl', '').size() <= 1024))
+        && (data.get('profileCompleted', null) == null || data.get('profileCompleted', false) is bool)
+        && (data.get('portfolioUrl', null) == null || (data.get('portfolioUrl', '') is string && data.get('portfolioUrl', '').size() <= 512))
+        && (data.get('emailVerified', null) == null || data.get('emailVerified', false) is bool)
+        && (data.get('integrations', null) == null || data.get('integrations', {}) is map)
+        && (data.get('stats', null) == null || data.get('stats', {}) is map)
+        && data.get('createdAt', '') is string && data.get('createdAt', '').size() <= 64;
+    }
+
+    // Validation Blueprint for Designs
+    function isValidDesign(data) {
+      return data.id is string && data.id.size() <= 256
+        && data.userId is string && data.userId.size() <= 128
+        && data.get('source', 'figma') is string && data.get('source', 'figma').size() <= 64
+        && (data.get('sourceId', null) == null || (data.get('sourceId', '') is string && data.get('sourceId', '').size() <= 512))
+        && data.get('title', '') is string && data.get('title', '').size() <= 1024
+        && data.get('description', '') is string && data.get('description', '').size() <= 8192
+        && data.imageUrl is string && data.imageUrl.size() <= 8192
+        && data.thumbnailUrl is string && data.thumbnailUrl.size() <= 8192
+        && (data.get('category', null) == null || (data.get('category', '') is string && data.get('category', '').size() <= 256))
+        && (data.get('format', null) == null || (data.get('format', '') is string && data.get('format', '').size() <= 256))
+        && data.get('styles', []) is list && data.get('styles', []).size() <= 50
+        && data.get('tags', []) is list && data.get('tags', []).size() <= 50
+        && data.get('status', 'draft') is string && data.get('status', 'draft').size() <= 64
+        && data.get('imported', false) is bool
+        && data.get('createdAt', '') is string && data.get('createdAt', '').size() <= 128
+        && data.get('updatedAt', '') is string && data.get('updatedAt', '').size() <= 128
+        && (data.get('publishedAt', null) == null || (data.get('publishedAt', '') is string && data.get('publishedAt', '').size() <= 128))
+        && data.get('stats', {}) is map;
     }
 
     // Validation Blueprint for Projects
     function isValidProject(data) {
-      return data.id is string && data.id.size() <= 256
+      return data.id is string && data.id.size() <= 128
         && data.userId is string && data.userId.size() <= 128
-        && data.title is string && data.title.size() <= 1024
+        && data.title is string && data.title.size() <= 256
         && data.description is string && data.description.size() <= 8192
-        && data.imageUrl is string && data.imageUrl.size() <= 8192
-        && (data.figmaUrl == null || (data.figmaUrl is string && data.figmaUrl.size() <= 8192))
-        && (data.embedUrl == null || (data.embedUrl is string && data.embedUrl.size() <= 8192))
-        && data.category is string && data.category.size() <= 256
+        && data.imageUrl is string && data.imageUrl.size() <= 2048
+        && (data.get('sourceUrl', null) == null || (data.get('sourceUrl', '') is string && data.get('sourceUrl', '').size() <= 2048))
+        && data.category is string && data.category.size() <= 128
         && data.likes is int
-        && data.createdAt is string && data.createdAt.size() <= 128
-        && (data.tags == null || (data.tags is list && data.tags.size() <= 20))
-        && (data.inspirationStyles == null || (data.inspirationStyles is list && data.inspirationStyles.size() <= 20))
-        && (data.preferredFormats == null || (data.preferredFormats is list && data.preferredFormats.size() <= 20));
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && (data.get('tags', null) == null || data.get('tags', []) is list)
+        && (data.get('inspirationStyles', null) == null || data.get('inspirationStyles', []) is list)
+        && (data.get('preferredFormats', null) == null || data.get('preferredFormats', []) is list);
+    }
+
+    // Validation Blueprint for Deleted Users
+    function isValidDeleted(data) {
+      return data.email is string && data.email.size() <= 256
+        && data.deletedAt is string && data.deletedAt.size() <= 64
+        && (!('surveyFeedback' in data) || data.surveyFeedback is map);
     }
 
     // Match blocks
@@ -67,11 +96,19 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && isValidId(userId);
       allow update: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && isValidId(userId);
-      allow delete: if false;
+      allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
     }
 
     match /user_secrets/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
+    }
+
+    match /designs/{designId} {
+      allow get: if isSignedIn() && isValidId(designId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidDesign(incoming()) && isValidId(designId);
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid && isValidDesign(incoming()) && isValidId(designId);
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid && isValidId(designId);
     }
 
     match /projects/{projectId} {
@@ -80,6 +117,12 @@ service cloud.firestore {
       allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidProject(incoming()) && isValidId(projectId);
       allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid && isValidProject(incoming()) && isValidId(projectId);
       allow delete: if isSignedIn() && existing().userId == request.auth.uid && isValidId(projectId);
+    }
+
+    match /deleted/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
+      allow create, update: if isSignedIn() && request.auth.uid == userId && isValidDeleted(incoming()) && isValidId(userId);
+      allow delete: if false;
     }
   }
 }

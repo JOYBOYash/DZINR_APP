@@ -82,10 +82,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     <div className="w-full flex flex-col gap-6 max-w-sm">
       {/* 1. Username field */}
       <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-space font-black uppercase tracking-widest text-[#ff2d51]">
+        <label className="text-[14px] font-sans font-semibold tracking-tight text-accent">
           Select Unique Handle
         </label>
-        <div className="relative flex items-center">
+        <div className="relative flex items-center text-[#171717] dark:text-white">
           <div className="absolute left-4 opacity-50">
             <User size={15} />
           </div>
@@ -97,10 +97,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
             type="text"
             value={localUsername}
             onChange={(e) => setLocalUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-            className={`w-full h-12 pl-13 pr-11 text-xs font-mono font-bold tracking-wide border rounded-sm outline-none transition-all ${
+            className={`w-full h-12 pl-13 pr-11 text-xs font-mono font-bold tracking-wide border rounded-[20px] outline-none transition-all ${
               theme === 'dark'
-                ? 'bg-[#2b313f]/40 border-white/10 text-[#F8FAFC] focus:border-[#ff2d51]/70'
-                : 'bg-white border-[#2b313f]/15 text-[#2b313f] focus:border-[#ff2d51]/70'
+                ? 'bg-transparent border-divider-dark text-white focus:border-accent/70'
+                : 'bg-transparent border-divider-light text-[#171717] focus:border-accent/70'
             }`}
             placeholder="e.g. JoyBoy"
             maxLength={20}
@@ -117,7 +117,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               </div>
             )}
             {!checkingAvailability && isAvailable === false && (
-              <div className="w-5 h-5 rounded-full bg-[#ff2d51]/10 text-[#ff2d51] flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full bg-accent/10 text-accent flex items-center justify-center">
                 <AlertTriangle size={12} strokeWidth={2.5} />
               </div>
             )}
@@ -125,11 +125,11 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
         </div>
 
         {usernameError ? (
-          <p className="text-[9px] font-space font-semibold uppercase tracking-wider text-[#ff2d51] mt-0.5 pl-1">
+          <p className="text-[13px] font-space font-semibold tracking-tight text-accent mt-0.5 pl-1">
             {usernameError}
           </p>
         ) : (
-          <p className="text-[9px] font-mono uppercase tracking-wider opacity-40 mt-0.5 pl-1">
+          <p className="text-[13px] font-mono tracking-tight opacity-40 mt-0.5 pl-1 text-[#171717] dark:text-white">
             Only lowercases, numbers, and underscores allowed.
           </p>
         )}
@@ -137,15 +137,15 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
 
       {/* 2. Bio text area */}
       <div className="flex flex-col gap-2">
-        <div className="flex justify-between items-center">
-          <label className="text-[10px] font-space font-black uppercase tracking-widest text-[#ff2d51]">
+        <div className="flex justify-between items-center text-[#171717] dark:text-white">
+          <label className="text-[14px] font-sans font-semibold tracking-tight text-accent">
             Short Creator Bio
           </label>
-          <span className="text-[9px] font-mono opacity-40">
+          <span className="text-[13px] font-mono opacity-40">
             {bio.length}/120
           </span>
         </div>
-        <div className="relative flex">
+        <div className="relative flex text-[#171717] dark:text-white">
           <div className="absolute top-3.5 left-4 opacity-50">
             <AlignLeft size={15} />
           </div>
@@ -153,15 +153,15 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
             id="profile-form-bio-textarea"
             value={bio}
             onChange={(e) => onBioChange(e.target.value.slice(0, 120))}
-            className={`w-full min-h-[90px] p-3.5 pl-10 text-xs font-space font-medium leading-relaxed border rounded-sm outline-none resize-none transition-all ${
+            className={`w-full min-h-[90px] p-3.5 pl-10 text-xs font-space font-medium leading-relaxed border rounded-[20px] outline-none resize-none transition-all ${
               theme === 'dark'
-                ? 'bg-[#2b313f]/40 border-white/10 text-[#F8FAFC] focus:border-[#ff2d51]/70'
-                : 'bg-white border-[#2b313f]/15 text-[#2b313f] focus:border-[#ff2d51]/70'
+                ? 'bg-transparent border-divider-dark text-white focus:border-accent/70'
+                : 'bg-transparent border-divider-light text-[#171717] focus:border-accent/70'
             }`}
             placeholder="Introduce your signature creative layout style, aesthetic goals, or design philosophies..."
           />
         </div>
-        <p className="text-[9px] font-mono uppercase tracking-wider opacity-40 mt-0.5 pl-1">
+        <p className="text-[13px] font-mono tracking-tight opacity-40 mt-0.5 pl-1 text-[#171717] dark:text-white">
           Tell other curators who you are in one sentence.
         </p>
       </div>

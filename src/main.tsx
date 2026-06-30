@@ -14,16 +14,12 @@ const queryClient = new QueryClient({
   },
 });
 
-// Register the PWA Service Worker in production / standalone modes
-if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        // Service worker registered
-      })
-      .catch((error) => {
-        console.error('Service Worker registration failed:', error);
-      });
+// Unregister all PWA Service Workers to clear aggressive caching
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
   });
 }
 

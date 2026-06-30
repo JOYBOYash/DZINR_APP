@@ -12,19 +12,14 @@ export interface UserProfile {
   onboardingCompleted: boolean;
   profileCompleted?: boolean;
   portfolioUrl?: string;
+  emailVerified?: boolean;
   integrations?: {
-    figma?: {
-      connected: boolean;
-      username?: string;
-      accessToken?: string;
-      connectedAt?: string;
-    };
     [key: string]: any;
   };
   stats?: {
-    uploads: number;
-    swipes: number;
-    rating: number;
+    uploadsCount: number;
+    draftCount: number;
+    publishedCount: number;
   };
   createdAt: string;
 }
