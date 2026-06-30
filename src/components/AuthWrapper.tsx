@@ -97,6 +97,11 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
       setActionLoading(true);
       if (isSignUp) {
         const user = await authService.signUpWithEmail(email, password);
+        if (user && user.email) {
+          await authService.sendCustomVerificationEmail(user.email).catch((e) => {
+            console.warn("Failed to send signup verification email:", e);
+          });
+        }
         setFirebaseUser(user);
       } else {
         const { userService } = await import('../services/user.service');
@@ -106,6 +111,11 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
           return;
         }
         const user = await authService.signInWithEmail(email, password);
+        if (user && !user.emailVerified && user.email) {
+          await authService.sendCustomVerificationEmail(user.email).catch((e) => {
+            console.warn("Failed to send login verification email:", e);
+          });
+        }
         setFirebaseUser(user);
       }
     } catch (err: any) {

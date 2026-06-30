@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { onAuthStateChanged, getRedirectResult } from "firebase/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { auth } from "./services/firebase";
 import { authService } from "./services/auth.service";
 import { userService } from "./services/user.service";
@@ -12,6 +13,7 @@ import { DashboardView } from "./components/DashboardView";
 import { ProjectsView } from "./components/ProjectsView";
 import { ProjectEditorView } from "./components/ProjectEditorView";
 import { EditProfileView } from "./components/EditProfileView";
+import { DiscoveryFeedView } from "./components/DiscoveryFeedView";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { ToastContainer } from "./components/Toast";
 import { NavBar } from "./components/NavBar";
@@ -39,11 +41,12 @@ export default function App() {
 
   const onboardingStore = useOnboardingStore();
   const { toasts, removeToast } = useToastStore();
+  const queryClient = useQueryClient();
 
   // Navigation states
   const [showSplash, setShowSplash] = useState(true);
-  const [currentPage, setCurrentPage] = useState<"profile" | "projects" | "edit-profile" | "project-editor">(
-    "profile",
+  const [currentPage, setCurrentPage] = useState<"feed" | "profile" | "projects" | "edit-profile" | "project-editor">(
+    "feed",
   );
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
@@ -515,6 +518,15 @@ export default function App() {
                   user={user!}
                   theme={theme}
                   onClose={() => setCurrentPage("profile")}
+                />
+              ) : currentPage === "feed" ? (
+                <DiscoveryFeedView
+                  user={user!}
+                  theme={theme}
+                  onExploreCategories={() => setCurrentPage("projects")}
+                  onRefreshStats={() => {
+                    queryClient.invalidateQueries({ queryKey: ["creatorMetrics", user?.id] });
+                  }}
                 />
               ) : (
                 <DashboardView

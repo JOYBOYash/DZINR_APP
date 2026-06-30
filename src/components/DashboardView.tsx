@@ -19,12 +19,17 @@ import {
   Moon,
   AlertTriangle,
   Mail,
+  Bookmark,
+  TrendingUp,
+  Sparkles,
+  Award,
 } from "lucide-react";
 import { UserProfile } from "../types";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
 import { Avatar } from "./Avatar";
 import { designService, Design } from "../services/design.service";
+import { discoveryService } from "../services/discovery.service";
 import { useAuthStore } from "../stores/auth.store";
 import { useToastStore } from "../stores/toast.store";
 import { userService } from "../services/user.service";
@@ -79,6 +84,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+
+  const { data: metrics, isLoading: isMetricsLoading } = useQuery({
+    queryKey: ["creatorMetrics", user.id],
+    queryFn: () => discoveryService.getCreatorMetrics(user.id),
+    enabled: !!user.id,
+  });
 
   const completionPercentage = (() => {
     let score = 10;
@@ -360,6 +371,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
       )}
+
+      {/* SECTION: Creator Portfolio Performance Metrics */}
+      <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-mono uppercase text-accent tracking-widest font-bold">Creator Loop Intelligence</span>
+            <h2 className="text-xl sm:text-2xl font-bold font-space text-[#171717] dark:text-white tracking-tight mt-1">
+              Design Score Insights
+            </h2>
+            <p className="text-sm text-[#555555] dark:text-[#D7D7D7] mt-1.5 leading-relaxed max-w-2xl">
+              Real-time feed analytics tracking audience reception, bookmark velocity, and aggregated quality scores.
+            </p>
+          </div>
+        </div>
+
+        {isMetricsLoading ? (
+          <div className="py-8 flex items-center gap-2 text-xs font-mono text-[#888888] dark:text-[#A9A9A9] animate-pulse">
+            <Loader2 className="animate-spin text-accent" size={14} />
+            <span>Computing live telemetry...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Stat 1: Total Reviews */}
+            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-accent/15 transition-all">
+              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Total Reviews</span>
+                <Award size={14} />
+              </div>
+              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                {metrics?.totalReviews || 0}
+              </p>
+              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
+                Total swipe interactions received
+              </p>
+            </div>
+
+            {/* Stat 2: Right Swipes */}
+            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-green-500/15 transition-all">
+              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Right Swipes</span>
+                <Heart size={14} className="text-green-500" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                {metrics?.rightSwipes || 0}
+              </p>
+              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
+                Total positive "like" evaluations
+              </p>
+            </div>
+
+            {/* Stat 3: Saves */}
+            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-amber-500/15 transition-all">
+              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Total Saves</span>
+                <Bookmark size={14} className="text-amber-500" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                {metrics?.saves || 0}
+              </p>
+              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
+                Saved for direct inspiration
+              </p>
+            </div>
+
+            {/* Stat 4: Weighted Score */}
+            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-indigo-500/15 transition-all">
+              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Weighted Score</span>
+                <Sparkles size={14} className="text-indigo-500" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
+              </p>
+              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
+                Right & Save ratios combined
+              </p>
+            </div>
+
+            {/* Stat 5: Review Velocity */}
+            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-[#ff2d51]/15 transition-all">
+              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Review Velocity</span>
+                <TrendingUp size={14} className="text-[#ff2d51]" />
+              </div>
+              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                {metrics?.reviewVelocity || 0}
+              </p>
+              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
+                Interactions received per upload
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* SECTION 2: Curation Preferences */}
       <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">

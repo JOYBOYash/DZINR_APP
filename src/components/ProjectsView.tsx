@@ -29,6 +29,7 @@ import { CategorySelector, TagSelector } from "./CreatorWorkspace/Selectors";
 import { DesignCarousel } from "./DesignCarousel";
 
 const CATEGORIES = [
+  "Carousels",
   "UI/UX",
   "Branding",
   "Posters",
@@ -288,13 +289,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
                       className="w-full h-full"
                     />
                     
-                    {/* Hover triggers */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-start p-4 z-10">
+                    {/* Hover triggers - always visible as an overlay block on mobile/touch screens, hover-only on desktop */}
+                    <div className="absolute inset-0 bg-black/30 sm:bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-start p-3 sm:p-4 z-10 pointer-events-none">
                       <button
                         onClick={() => onEditDraft?.(draft.id)}
-                        className="text-xs font-space font-bold uppercase text-white flex items-center gap-1 hover:text-accent cursor-pointer"
+                        className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center gap-1.5 hover:text-accent cursor-pointer bg-black/60 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-full border border-white/10 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none"
                       >
-                        <Edit3 size={13} /> Edit Layout
+                        <Edit3 size={12} className="sm:w-[13px] sm:h-[13px]" /> Edit Layout
                       </button>
                     </div>
                   </div>

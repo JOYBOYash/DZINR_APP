@@ -1,10 +1,10 @@
 import React from "react";
 import { motion } from "motion/react";
-import { User, LayoutGrid } from "lucide-react";
+import { User, LayoutGrid, Compass } from "lucide-react";
 
 interface NavBarProps {
-  currentPage: "profile" | "projects";
-  setCurrentPage: (page: "profile" | "projects") => void;
+  currentPage: string;
+  setCurrentPage: (page: any) => void;
   theme: "dark" | "light";
 }
 
@@ -21,9 +21,9 @@ export const NavBar: React.FC<NavBarProps> = ({
       className="md:hidden fixed bottom-6 left-1/2 z-[40] rounded-full flex items-center justify-center gap-6 px-6 py-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-[#ECECEC] dark:border-white/10 bg-white/80 dark:bg-[#5A0A20]/80 backdrop-blur-md"
       style={{ height: "64px" }}
     >
-      {["profile", "projects"].map((page) => {
+      {["feed", "profile", "projects"].map((page) => {
         const isActive = currentPage === page;
-        const Icon = page === "profile" ? User : LayoutGrid;
+        const Icon = page === "feed" ? Compass : page === "profile" ? User : LayoutGrid;
 
         return (
           <button

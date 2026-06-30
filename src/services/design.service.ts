@@ -16,10 +16,17 @@ import {
 } from "firebase/firestore";
 
 export interface DesignStats {
-  likes: number;
-  dislikes: number;
+  likes?: number;
+  dislikes?: number;
+  leftSwipes?: number;
+  rightSwipes?: number;
   saves: number;
+  totalInteractions?: number;
+  totalViews?: number;
   score: number;
+  engagementRate?: number;
+  confidence?: number;
+  updatedAt?: string;
 }
 
 export const getSafeUserStats = (rawStats: any) => {

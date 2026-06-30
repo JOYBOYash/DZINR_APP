@@ -57,6 +57,25 @@ async function startServer() {
   });
 
   async function sendVerificationEmail(email: string, link: string) {
+    let logoSvg = "";
+    try {
+      const svgPath = path.join(process.cwd(), "public", "wordmark-logo.svg");
+      if (fs.existsSync(svgPath)) {
+        logoSvg = fs.readFileSync(svgPath, "utf8");
+        // Remove XML declaration and comments
+        logoSvg = logoSvg.replace(/<\?xml[^>]*\?>/g, "");
+        logoSvg = logoSvg.replace(/<!--[^>]*-->/g, "");
+        // Replace white fill with theme primary color (#ff2d51)
+        logoSvg = logoSvg.replace(/fill:#ffffff/gi, "fill:#ff2d51");
+        logoSvg = logoSvg.replace(/fill:#fff/gi, "fill:#ff2d51");
+        // Replace red fill with theme primary color (#ff2d51)
+        logoSvg = logoSvg.replace(/fill:#ff002c/gi, "fill:#ff2d51");
+        logoSvg = logoSvg.replace(/fill:#ff002d/gi, "fill:#ff2d51");
+      }
+    } catch (err) {
+      console.error("Failed to load/customize logo SVG for verification email:", err);
+    }
+
     const fromUser = smtpUser || "dzinrapp@gmail.com";
     const mailOptions = {
       from: `"DZINR" <${fromUser}>`,
@@ -187,7 +206,13 @@ async function startServer() {
             <div class="container">
               <img src="https://www.dropbox.com/scl/fi/nmpnlwfueuheglqud6hjg/Banner.png?rlkey=uxltosyeq7dcexnnwjhlm5fbn&st=j1hm8lds&raw=1" alt="DZINR Banner" class="banner-img">
               <div class="content-box">
-                <img src="https://www.dropbox.com/scl/fi/mfwn8nmnfo2kywgw0qls2/wordmark-logo.svg?rlkey=paf3xduz9nlrhmdphmrsnhoss&st=0hjkecao&raw=1" alt="DZINR" class="header-logo">
+                ${logoSvg ? `
+                  <div style="height: 40px; margin: 0 auto 16px auto; display: inline-block;">
+                    ${logoSvg.replace(/<svg/i, '<svg style="height: 40px; width: auto; display: block; margin: 0 auto;"')}
+                  </div>
+                ` : `
+                  <img src="https://www.dropbox.com/scl/fi/mfwn8nmnfo2kywgw0qls2/wordmark-logo.svg?rlkey=paf3xduz9nlrhmdphmrsnhoss&st=0hjkecao&raw=1" alt="DZINR" class="header-logo">
+                `}
                 <div class="sub-header">Rapid Design Feedback Platform</div>
                 
                 <h2>Verify your email address</h2>
@@ -234,7 +259,10 @@ async function startServer() {
         });
       }
 
-      const redirectUri = "https://dzinr-app.vercel.app/";
+      // Dynamically detect the running host (handles development, shared previews, custom domains, and PWA context)
+      const host = req.get("host") || "localhost:3000";
+      const protocol = req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+      const redirectUri = `${protocol}://${host}/`;
 
       const actionCodeSettings = {
         url: redirectUri,

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { LogOut, Moon, Sun, User, LayoutGrid, ChevronRight, ChevronLeft } from "lucide-react";
+import { LogOut, Moon, Sun, User, LayoutGrid, ChevronRight, ChevronLeft, Compass } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
   isAuthenticated: boolean;
   theme: "dark" | "light";
-  currentPage: "profile" | "projects";
-  setCurrentPage: (page: "profile" | "projects") => void;
+  currentPage: string;
+  setCurrentPage: (page: any) => void;
   toggleTheme: () => void;
   setShowLogoutConfirm: (show: boolean) => void;
   firebaseUser: any;
@@ -75,6 +75,44 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Sidebar Nav Buttons */}
         {isAuthenticated && (
           <div className="flex flex-col gap-3 w-full">
+            {/* Discovery Feed Tab */}
+            <button
+              id="header-nav-feed"
+              onClick={() => setCurrentPage("feed")}
+              className={`relative flex items-center w-full h-12 rounded-[18px] transition-all cursor-pointer group ${
+                currentPage === "feed"
+                  ? "text-white"
+                  : "text-[#555555] dark:text-[#D7D7D7] hover:bg-[#F7F7F8] dark:hover:bg-white/5"
+              }`}
+            >
+              {currentPage === "feed" && (
+                <motion.div
+                  layoutId="sidebar-active-indicator"
+                  className="absolute inset-0 rounded-[18px] bg-accent shadow-[0_4px_16px_rgba(201,0,35,0.3)]"
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                />
+              )}
+              <div className="relative z-10 flex items-center gap-3.5 px-3.5">
+                <Compass
+                  size={20}
+                  strokeWidth={currentPage === "feed" ? 2.5 : 2}
+                  className="shrink-0"
+                />
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -5 }}
+                      className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
+                    >
+                      Discovery Feed
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </button>
+
             {/* Profile Tab */}
             <button
               id="header-nav-profile"

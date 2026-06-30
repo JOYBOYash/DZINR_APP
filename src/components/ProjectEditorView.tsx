@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, Trash2, Loader2, Upload, FileArchive, Image as ImageIcon, X, Edit3, ArrowLeft, Link, Instagram, Twitter, Globe, Pin } from "lucide-react";
+import { Plus, Trash2, Loader2, Upload, FileArchive, Image as ImageIcon, X, Edit3, ArrowLeft, Link, Instagram, Twitter, Globe, Pin, ChevronLeft, ChevronRight } from "lucide-react";
 import { UserProfile } from "../types";
 import { designService, Design } from "../services/design.service";
 import { zipImportService } from "../services/zipImport.service";
@@ -14,7 +14,7 @@ import { ImportMethodCard } from "./CreatorWorkspace/ImportMethodCard";
 import { CategorySelector, TagSelector } from "./CreatorWorkspace/Selectors";
 
 const CATEGORIES = [
-  "UI/UX", "Branding", "Posters", "Logos", "Brochures", 
+  "Carousels", "UI/UX", "Branding", "Posters", "Logos", "Brochures", 
   "Infographics", "Banners", "Presentations", "Packaging", 
   "Motion", "3D"
 ];
@@ -224,8 +224,11 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
     }
   };
 
-  const handleZipImportInit = async (file: File) => {
+  const processZipImport = async (importAsSingle: boolean) => {
+    if (!pendingZip) return;
     setUploading(true);
+    const file = pendingZip;
+    setPendingZip(null);
     try {
       const extracted = await zipImportService.extractImages(file);
       if (extracted.length === 0) {
@@ -233,41 +236,78 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
         return;
       }
 
-      const uploadedUrls = [];
-      let primaryThumb = "";
-      for (let i = 0; i < extracted.length; i++) {
-        const compressed = await imageCompressionService.compressImage(extracted[i].file);
-        const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
-        uploadedUrls.push(url);
-        if (url) {
-          sessionCloudinaryUrls.current.push(url);
-        }
-        if (i === 0) primaryThumb = thumbnailUrl;
-      }
+      showToast(`Uploading and compressing ${extracted.length} image files from ZIP...`, "info");
 
-      setEditingDraft({
-        id: `zip_${user.id}_${Date.now()}`,
-        userId: user.id,
-        source: "zip",
-        sourceId: file.name,
-        title: file.name.split(".")[0],
-        description: "Imported from ZIP collection",
-        imageUrl: uploadedUrls[0],
-        thumbnailUrl: primaryThumb,
-        imageUrls: uploadedUrls,
-        category: null,
-        format: null,
-        styles: [],
-        tags: [],
-        status: "draft",
-        imported: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        publishedAt: null,
-        stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
-      });
-      showToast(`Imported ${extracted.length} images as one project.`, "success");
-      setUploadMode("none");
+      if (importAsSingle) {
+        const uploadedUrls = [];
+        let primaryThumb = "";
+        for (let i = 0; i < extracted.length; i++) {
+          const compressed = await imageCompressionService.compressImage(extracted[i].file);
+          const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
+          uploadedUrls.push(url);
+          if (url) {
+            sessionCloudinaryUrls.current.push(url);
+          }
+          if (i === 0) primaryThumb = thumbnailUrl;
+        }
+
+        setEditingDraft({
+          id: `zip_${user.id}_${Date.now()}`,
+          userId: user.id,
+          source: "zip",
+          sourceId: file.name,
+          title: file.name.split(".")[0],
+          description: "Imported from ZIP collection",
+          imageUrl: uploadedUrls[0],
+          thumbnailUrl: primaryThumb || uploadedUrls[0],
+          imageUrls: uploadedUrls,
+          category: null,
+          format: null,
+          styles: [],
+          tags: [],
+          status: "draft",
+          imported: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          publishedAt: null,
+          stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
+        });
+        showToast(`Imported ${extracted.length} images as one project.`, "success");
+        setUploadMode("none");
+      } else {
+        // Import each as separate draft projects
+        for (let i = 0; i < extracted.length; i++) {
+          const compressed = await imageCompressionService.compressImage(extracted[i].file);
+          const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
+          if (url) {
+            const draftData: Design = {
+              id: `zip_${user.id}_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+              userId: user.id,
+              source: "zip",
+              sourceId: file.name,
+              title: `${file.name.split(".")[0]} - Slot ${i + 1}`,
+              description: `Imported from ZIP archive "${file.name}"`,
+              imageUrl: url,
+              thumbnailUrl: thumbnailUrl || url,
+              imageUrls: [url],
+              category: null,
+              format: null,
+              styles: [],
+              tags: [],
+              status: "draft",
+              imported: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              publishedAt: null,
+              stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
+            };
+            const created = await designService.createDesign(draftData);
+            addDraft(created);
+          }
+        }
+        showToast(`Imported ${extracted.length} separate draft projects successfully!`, "success");
+        onBack();
+      }
     } catch (err: any) {
       showToast("ZIP Import failed: " + err.message, "error");
     } finally {
@@ -359,6 +399,66 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
 
   return (
     <div className="w-full max-w-[1400px] mx-auto space-y-8 animate-fade-in text-left pb-24 px-4 sm:px-6 pt-8 sm:pt-12 md:pt-16">
+      {pendingZip && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white dark:bg-[#1A1F2C] rounded-[24px] border border-[#ECECEC] dark:border-white/10 p-6 max-w-md w-full space-y-6 text-left shadow-2xl"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-full bg-accent/10 text-accent flex items-center justify-center">
+                <FileArchive size={20} />
+              </div>
+              <h3 className="text-base font-space font-bold text-[#171717] dark:text-white">
+                Bulk ZIP Import Options
+              </h3>
+              <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+                How would you like to unpack and import the files in <span className="font-mono text-accent break-all font-semibold">"{pendingZip.name}"</span>?
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => processZipImport(true)}
+                className="flex flex-col items-start gap-1 p-4 rounded-[18px] border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:border-accent dark:hover:border-accent text-left transition-all cursor-pointer group w-full"
+              >
+                <span className="text-xs font-space font-bold text-[#171717] dark:text-white group-hover:text-accent">
+                  Single Project (Carousel Layout)
+                </span>
+                <span className="text-[10px] text-[#555555] dark:text-[#A9A9A9] leading-snug">
+                  Combine all extracted images into a single project containing multiple slides/frames. Recommended for carousels and portfolios.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => processZipImport(false)}
+                className="flex flex-col items-start gap-1 p-4 rounded-[18px] border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:border-accent dark:hover:border-accent text-left transition-all cursor-pointer group w-full"
+              >
+                <span className="text-xs font-space font-bold text-[#171717] dark:text-white group-hover:text-accent">
+                  Multiple Projects (Separate Drafts)
+                </span>
+                <span className="text-[10px] text-[#555555] dark:text-[#A9A9A9] leading-snug">
+                  Unpack each extracted image as its own separate standalone draft project in your workspace.
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                onClick={() => setPendingZip(null)}
+                variant="secondary"
+                className="h-10 text-xs px-4"
+              >
+                Cancel
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ECECEC] dark:border-white/10 pb-4">
         <div>
           <button 
@@ -453,7 +553,7 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                 accept=".zip"
                 ref={zipInputRef}
                 className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleZipImportInit(e.target.files[0])}
+                onChange={(e) => e.target.files?.[0] && setPendingZip(e.target.files[0])}
               />
               <div className="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center mb-4">
                 <FileArchive size={22} />
@@ -615,6 +715,60 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                         : [editingDraft.imageUrl].filter(Boolean)
                       ).map((url, index) => (
                         <div key={url + index} className="relative group/thumb shrink-0">
+                          {/* Rearrange buttons */}
+                          <div className="absolute top-1.5 inset-x-1.5 flex justify-between pointer-events-none z-20 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                            {index > 0 ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const currentUrls = [...(editingDraft.imageUrls && editingDraft.imageUrls.length > 0
+                                    ? editingDraft.imageUrls
+                                    : [editingDraft.imageUrl])];
+                                  const temp = currentUrls[index];
+                                  currentUrls[index] = currentUrls[index - 1];
+                                  currentUrls[index - 1] = temp;
+                                  setEditingDraft({
+                                    ...editingDraft,
+                                    imageUrls: currentUrls,
+                                    imageUrl: currentUrls[0],
+                                  });
+                                  setActiveImageIdx(index - 1);
+                                  showToast("Image moved left.", "success");
+                                }}
+                                className="w-5 h-5 rounded-full bg-black/70 hover:bg-accent text-white flex items-center justify-center pointer-events-auto cursor-pointer transition-colors"
+                                title="Move Left"
+                              >
+                                <ChevronLeft size={12} strokeWidth={2.5} />
+                              </button>
+                            ) : <div />}
+                            {index < (((editingDraft.imageUrls && editingDraft.imageUrls.length > 0) ? editingDraft.imageUrls : [editingDraft.imageUrl]).length - 1) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const currentUrls = [...(editingDraft.imageUrls && editingDraft.imageUrls.length > 0
+                                    ? editingDraft.imageUrls
+                                    : [editingDraft.imageUrl])];
+                                  const temp = currentUrls[index];
+                                  currentUrls[index] = currentUrls[index + 1];
+                                  currentUrls[index + 1] = temp;
+                                  setEditingDraft({
+                                    ...editingDraft,
+                                    imageUrls: currentUrls,
+                                    imageUrl: currentUrls[0],
+                                  });
+                                  setActiveImageIdx(index + 1);
+                                  showToast("Image moved right.", "success");
+                                }}
+                                className="w-5 h-5 rounded-full bg-black/70 hover:bg-accent text-white flex items-center justify-center pointer-events-auto cursor-pointer transition-colors ml-auto"
+                                title="Move Right"
+                              >
+                                <ChevronRight size={12} strokeWidth={2.5} />
+                              </button>
+                            )}
+                          </div>
+
                           <div
                             onClick={() => setActiveImageIdx(index)}
                             className={`relative w-16 h-16 rounded-[18px] cursor-pointer border-[2px] transition-all bg-[#ECECEC] dark:bg-accent ${
