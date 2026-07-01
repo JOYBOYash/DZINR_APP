@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="./public/assets/brand/wordmark-logo.svg" alt="Dzinr" width="280"/>
+<img src="https://www.dropbox.com/scl/fi/nmpnlwfueuheglqud6hjg/Banner.png?rlkey=uxltosyeq7dcexnnwjhlm5fbn&st=wzd8hr04&dl=0" alt="Dzinr" width="{100vh}"/>
+
+<img src="https://www.dropbox.com/scl/fi/mfwn8nmnfo2kywgw0qls2/wordmark-logo.svg?rlkey=paf3xduz9nlrhmdphmrsnhoss&st=ol63k62n&dl=0" alt="Dzinr" width="280"/>
 
 # DZINR
 
