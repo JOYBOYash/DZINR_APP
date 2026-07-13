@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "motion/react";
-import { ArrowLeft, ArrowRight, Bookmark, RefreshCw, Sparkles, HelpCircle, Laptop, Heart } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, RefreshCw, Sparkles, HelpCircle, Laptop, Heart, X } from "lucide-react";
 import { UserProfile } from "../types";
 import { Design } from "../services/design.service";
 import { discoveryService } from "../services/discovery.service";
@@ -106,30 +106,29 @@ const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
 
         {/* Dynamic Swipe Badges/Indicators on dragging */}
         <>
-          {/* LIKE BADGE */}
+          {/* LIKE BADGE (Heart) */}
           <motion.div
             style={{ opacity: likeIndicatorOpacity }}
-            className="absolute top-8 left-8 z-30 border-4 border-green-500 text-green-500 font-space font-bold uppercase tracking-widest text-sm px-4 py-2 rounded-xl rotate-[-12deg]"
+            className="absolute top-8 left-8 z-30 w-16 h-16 rounded-full bg-emerald-500/95 text-white flex items-center justify-center shadow-lg border border-emerald-400/20 backdrop-blur-md"
           >
-            LIKE
+            <Heart size={30} fill="currentColor" />
           </motion.div>
 
-          {/* NOT RELEVANT BADGE */}
+          {/* NEXT/DISLIKE BADGE (X) */}
           <motion.div
             style={{ opacity: nopeIndicatorOpacity }}
-            className="absolute top-8 right-8 z-30 border-4 border-accent text-accent font-space font-bold uppercase tracking-widest text-sm px-4 py-2 rounded-xl rotate-[12deg]"
+            className="absolute top-8 right-8 z-30 w-16 h-16 rounded-full bg-rose-500/95 text-white flex items-center justify-center shadow-lg border border-rose-400/20 backdrop-blur-md"
           >
-            NEXT
+            <X size={30} className="stroke-[2.5]" />
           </motion.div>
 
-          {/* SAVE BADGE */}
+          {/* SAVE BADGE (Bookmark) */}
           <motion.div
             style={{ opacity: saveIndicatorOpacity }}
-            className="absolute inset-0 z-30 flex items-center justify-center"
+            className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
           >
-            <div className="bg-amber-500/95 text-white font-space font-bold uppercase tracking-widest text-sm px-6 py-3 rounded-full flex items-center gap-2 shadow-lg">
-              <Bookmark size={18} fill="currentColor" />
-              <span>SAVE INSPIRATION</span>
+            <div className="w-20 h-20 rounded-full bg-amber-500/95 text-white flex items-center justify-center shadow-2xl border border-amber-400/20 backdrop-blur-md">
+              <Bookmark size={36} fill="currentColor" />
             </div>
           </motion.div>
         </>
@@ -160,7 +159,7 @@ const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold font-space text-white leading-none">
-              @{activeCreator?.username || card.userId?.slice(0, 8) || "anonymous"}
+              @{activeCreator?.username || "Creator"}
             </span>
             <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono text-neutral-300 uppercase tracking-wider">
               <span>{card.category || "General"}</span>
@@ -240,6 +239,9 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
           setCreatorProfiles((prev) => ({ ...prev, [creatorId]: profile }));
           setActiveCreator(profile);
         } else {
+          // Creator profile doesn't exist anymore (deleted user).
+          // Filter out their designs entirely so they do not appear in the feed.
+          setDesigns((prev) => prev.filter((d) => d.userId !== creatorId));
           setActiveCreator(null);
         }
       } catch (err) {

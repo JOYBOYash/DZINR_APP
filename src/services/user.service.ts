@@ -161,6 +161,21 @@ export const userService = {
         console.warn("Could not retrieve user projects during account deletion:", projectsErr);
       }
 
+      // 3.5. Delete user's uploaded designs and their images from Cloudinary
+      try {
+        const { designService } = await import('./design.service');
+        const userDesigns = await designService.getDesigns(userId);
+        for (const design of userDesigns) {
+          try {
+            await designService.deleteDesign(design.id, userId, design.status);
+          } catch (designErr) {
+            console.warn(`Could not delete design ${design.id} during account deletion:`, designErr);
+          }
+        }
+      } catch (designsErr) {
+        console.warn("Could not retrieve user designs during account deletion:", designsErr);
+      }
+
       // 4. Delete user secrets if they exist
       const secretRef = doc(db, 'user_secrets', userId);
       const { deleteDoc } = await import('firebase/firestore');

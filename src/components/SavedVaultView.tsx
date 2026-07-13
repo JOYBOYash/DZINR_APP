@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { UserProfile } from "../types";
@@ -31,7 +31,9 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
     typeof window !== "undefined" && window.innerWidth < 768
   );
   const [zoomScale, setZoomScale] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const imageAreaRef = React.useRef<HTMLDivElement>(null);
+  const imageRef = React.useRef<HTMLImageElement>(null);
 
   // Sync lightbox open state to parent to hide global navigation
   useEffect(() => {
@@ -44,17 +46,50 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
       setIsPanelCollapsed(isMobile);
       setZoomScale(1);
+      setPanOffset({ x: 0, y: 0 });
     }
   }, [lightboxDesign]);
 
-  // Touch Pinch-to-Zoom and Trackpad Pinch/Scroll Zoom
+  // Helper to clamp pan offsets within exact image boundary bounds
+  const clampTranslate = (x: number, y: number, scaleVal: number) => {
+    const container = imageAreaRef.current;
+    const img = imageRef.current;
+    if (!container || !img || !img.naturalWidth || !img.naturalHeight) {
+      return { x: 0, y: 0 };
+    }
+    const containerRect = container.getBoundingClientRect();
+    const containerRatio = containerRect.width / containerRect.height;
+    const imageRatio = img.naturalWidth / img.naturalHeight;
+
+    let W_i = containerRect.width;
+    let H_i = containerRect.height;
+
+    if (imageRatio > containerRatio) {
+      W_i = containerRect.width;
+      H_i = containerRect.width / imageRatio;
+    } else {
+      H_i = containerRect.height;
+      W_i = containerRect.height * imageRatio;
+    }
+
+    const maxTranslateX = Math.max(0, (W_i * scaleVal - containerRect.width) / 2);
+    const maxTranslateY = Math.max(0, (H_i * scaleVal - containerRect.height) / 2);
+
+    return {
+      x: Math.min(Math.max(x, -maxTranslateX), maxTranslateX),
+      y: Math.min(Math.max(y, -maxTranslateY), maxTranslateY)
+    };
+  };
+
+  const stateRef = useRef({ zoomScale, panOffset });
+  useEffect(() => {
+    stateRef.current = { zoomScale, panOffset };
+  }, [zoomScale, panOffset]);
+
+  // WhatsApp-Style Unified Gestures (Mouse Wheel zoom, left-click pan, double tap/click zoom, pinch-to-zoom)
   useEffect(() => {
     const element = imageAreaRef.current;
     if (!element || !lightboxDesign) return;
-
-    let initialDistance = 0;
-    let initialScale = 1;
-    let isPinching = false;
 
     const getDistance = (touches: TouchList) => {
       if (touches.length < 2) return 0;
@@ -63,50 +98,226 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       return Math.sqrt(dx * dx + dy * dy);
     };
 
+    const getTouchCenter = (touches: TouchList) => {
+      if (touches.length < 2) return { x: 0, y: 0 };
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2,
+      };
+    };
+
+    // --- MOUSE WHEEL ZOOM (Desktop) ---
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const currentScale = stateRef.current.zoomScale;
+      const currentPan = stateRef.current.panOffset;
+      const zoomFactor = 1.15;
+      const direction = e.deltaY < 0 ? 1 : -1;
+      
+      const nextScale = direction > 0 ? currentScale * zoomFactor : currentScale / zoomFactor;
+      const clampedScale = Math.min(Math.max(nextScale, 1), 4);
+      
+      let nextPan = { x: 0, y: 0 };
+      if (clampedScale > 1) {
+        const rect = element.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left - rect.width / 2;
+        const mouseY = e.clientY - rect.top - rect.height / 2;
+        
+        const ratio = clampedScale / currentScale;
+        const targetX = mouseX - (mouseX - currentPan.x) * ratio;
+        const targetY = mouseY - (mouseY - currentPan.y) * ratio;
+        
+        nextPan = clampTranslate(targetX, targetY, clampedScale);
+      }
+      
+      setZoomScale(clampedScale);
+      setPanOffset(nextPan);
+      element.style.cursor = clampedScale > 1 ? "grab" : "zoom-in";
+    };
+
+    // --- DESKTOP CLICK-AND-DRAG PAN (Left mouse button) ---
+    let isMouseDragging = false;
+    let mouseDragStart = { x: 0, y: 0 };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return; // Left click only
+      const currentScale = stateRef.current.zoomScale;
+      const currentPan = stateRef.current.panOffset;
+      if (currentScale <= 1) return;
+      e.preventDefault();
+      isMouseDragging = true;
+      mouseDragStart = {
+        x: e.clientX - currentPan.x,
+        y: e.clientY - currentPan.y,
+      };
+      element.style.cursor = "grabbing";
+      
+      window.addEventListener("mousemove", handleGlobalMouseMove);
+      window.addEventListener("mouseup", handleGlobalMouseUp);
+    };
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isMouseDragging) return;
+      const currentScale = stateRef.current.zoomScale;
+      const newX = e.clientX - mouseDragStart.x;
+      const newY = e.clientY - mouseDragStart.y;
+      const clampedPan = clampTranslate(newX, newY, currentScale);
+      setPanOffset(clampedPan);
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (isMouseDragging) {
+        isMouseDragging = false;
+        const currentScale = stateRef.current.zoomScale;
+        element.style.cursor = currentScale > 1 ? "grab" : "zoom-in";
+      }
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+
+    // --- DOUBLE CLICK ZOOM (Desktop) ---
+    const handleDoubleClick = (e: MouseEvent) => {
+      e.preventDefault();
+      const currentScale = stateRef.current.zoomScale;
+      if (currentScale > 1) {
+        setZoomScale(1);
+        setPanOffset({ x: 0, y: 0 });
+        element.style.cursor = "zoom-in";
+      } else {
+        const rect = element.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left - rect.width / 2;
+        const mouseY = e.clientY - rect.top - rect.height / 2;
+        
+        const targetScale = 2.5;
+        const targetX = mouseX - mouseX * targetScale;
+        const targetY = mouseY - mouseY * targetScale;
+        const clampedPan = clampTranslate(targetX, targetY, targetScale);
+        
+        setZoomScale(targetScale);
+        setPanOffset(clampedPan);
+        element.style.cursor = "grab";
+      }
+    };
+
+    // --- MOBILE TOUCH GESTURES (Double Tap, Pinch, and Single Touch Drag) ---
+    let initialDistance = 0;
+    let initialScale = 1;
+    let initialPan = { x: 0, y: 0 };
+    let initialCenter = { x: 0, y: 0 };
+    let isPinching = false;
+    let isTouchDragging = false;
+    let touchDragStart = { x: 0, y: 0 };
+    let lastTapTime = 0;
+
     const handleTouchStart = (e: TouchEvent) => {
+      const currentScale = stateRef.current.zoomScale;
+      const currentPan = stateRef.current.panOffset;
+
       if (e.touches.length === 2) {
+        // Multi-touch pinch-to-zoom
         e.preventDefault();
-        initialDistance = getDistance(e.touches);
-        initialScale = zoomScale;
         isPinching = true;
+        isTouchDragging = false;
+        initialDistance = getDistance(e.touches);
+        initialScale = currentScale;
+        initialPan = { ...currentPan };
+        initialCenter = getTouchCenter(e.touches);
+      } else if (e.touches.length === 1) {
+        // Single touch
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          // Double Tap Detected
+          e.preventDefault();
+          if (currentScale > 1) {
+            setZoomScale(1);
+            setPanOffset({ x: 0, y: 0 });
+          } else {
+            const rect = element.getBoundingClientRect();
+            const touch = e.touches[0];
+            const tapX = touch.clientX - rect.left - rect.width / 2;
+            const tapY = touch.clientY - rect.top - rect.height / 2;
+            
+            const targetScale = 2.5;
+            const targetX = tapX - tapX * targetScale;
+            const targetY = tapY - tapY * targetScale;
+            const clampedPan = clampTranslate(targetX, targetY, targetScale);
+            
+            setZoomScale(targetScale);
+            setPanOffset(clampedPan);
+          }
+        } else {
+          // Normal drag start (if zoomed)
+          if (currentScale > 1) {
+            isTouchDragging = true;
+            touchDragStart = {
+              x: e.touches[0].clientX - currentPan.x,
+              y: e.touches[0].clientY - currentPan.y,
+            };
+          }
+        }
+        lastTapTime = now;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
+      const currentScale = stateRef.current.zoomScale;
+      const currentPan = stateRef.current.panOffset;
+
       if (isPinching && e.touches.length === 2) {
         e.preventDefault();
         const currentDistance = getDistance(e.touches);
+        const currentCenter = getTouchCenter(e.touches);
         if (initialDistance > 0 && currentDistance > 0) {
           const ratio = currentDistance / initialDistance;
           const nextScale = Math.min(Math.max(initialScale * ratio, 1), 4);
+          
+          const rect = element.getBoundingClientRect();
+          const initialCenterX = initialCenter.x - rect.left - rect.width / 2;
+          const initialCenterY = initialCenter.y - rect.top - rect.height / 2;
+          const currentCenterX = currentCenter.x - rect.left - rect.width / 2;
+          const currentCenterY = currentCenter.y - rect.top - rect.height / 2;
+          
+          const scaleRatio = nextScale / initialScale;
+          const targetPanX = currentCenterX - (initialCenterX - initialPan.x) * scaleRatio;
+          const targetPanY = currentCenterY - (initialCenterY - initialPan.y) * scaleRatio;
+          
+          const clampedPan = clampTranslate(targetPanX, targetPanY, nextScale);
+          
           setZoomScale(nextScale);
+          setPanOffset(clampedPan);
         }
+      } else if (isTouchDragging && e.touches.length === 1) {
+        e.preventDefault();
+        const newX = e.touches[0].clientX - touchDragStart.x;
+        const newY = e.touches[0].clientY - touchDragStart.y;
+        const clampedPan = clampTranslate(newX, newY, currentScale);
+        setPanOffset(clampedPan);
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
+      const currentScale = stateRef.current.zoomScale;
       if (isPinching) {
         isPinching = false;
-        initialDistance = 0;
-        if (zoomScale < 1.05) {
+        if (currentScale < 1.05) {
           setZoomScale(1);
+          setPanOffset({ x: 0, y: 0 });
         }
       }
+      isTouchDragging = false;
     };
 
-    const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const factor = 1 - e.deltaY * 0.01;
-        setZoomScale(prev => Math.min(Math.max(prev * factor, 1), 4));
-      }
-    };
+    // Apply cursor
+    const currentScale = stateRef.current.zoomScale;
+    element.style.cursor = currentScale > 1 ? "grab" : "zoom-in";
 
     element.addEventListener("touchstart", handleTouchStart, { passive: false });
     element.addEventListener("touchmove", handleTouchMove, { passive: false });
     element.addEventListener("touchend", handleTouchEnd);
     element.addEventListener("touchcancel", handleTouchEnd);
     element.addEventListener("wheel", handleWheel, { passive: false });
+    element.addEventListener("mousedown", handleMouseDown);
+    element.addEventListener("dblclick", handleDoubleClick);
 
     return () => {
       element.removeEventListener("touchstart", handleTouchStart);
@@ -114,8 +325,12 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       element.removeEventListener("touchend", handleTouchEnd);
       element.removeEventListener("touchcancel", handleTouchEnd);
       element.removeEventListener("wheel", handleWheel);
+      element.removeEventListener("mousedown", handleMouseDown);
+      element.removeEventListener("dblclick", handleDoubleClick);
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [lightboxDesign, zoomScale]);
+  }, [lightboxDesign]);
 
   // Set up the real-time subscription for saved designs
   useEffect(() => {
@@ -130,7 +345,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
     };
   }, [user?.id]);
 
-  // Dynamically resolve usernames for saved designs
+  // Dynamically resolve usernames for saved designs and filter out deleted users
   useEffect(() => {
     if (!savedDesigns || savedDesigns.length === 0) return;
 
@@ -142,6 +357,8 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       if (missingUserIds.length === 0) return;
 
       const resolvedNames: Record<string, string> = {};
+      const deletedUserIds = new Set<string>();
+
       await Promise.all(
         missingUserIds.map(async (id) => {
           try {
@@ -149,13 +366,18 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
             if (profile) {
               resolvedNames[id] = profile.username;
             } else {
-              resolvedNames[id] = id.slice(0, 8);
+              deletedUserIds.add(id);
             }
           } catch (err) {
-            resolvedNames[id] = id.slice(0, 8);
+            deletedUserIds.add(id);
           }
         })
       );
+
+      if (deletedUserIds.size > 0) {
+        // Filter out designs from deleted users
+        setSavedDesigns((prev) => prev.filter((d) => !deletedUserIds.has(d.userId)));
+      }
 
       if (Object.keys(resolvedNames).length > 0) {
         setUsernames((prev) => ({ ...prev, ...resolvedNames }));
@@ -222,7 +444,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
         >
           <AnimatePresence mode="popLayout">
             {savedDesigns.map((design) => {
-              const creatorUsername = usernames[design.userId] || design.userId?.slice(0, 8) || "anonymous";
+              const creatorUsername = usernames[design.userId] || "Creator";
               return (
                 <motion.div
                   key={design.id}
@@ -315,7 +537,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                       <span className={`text-xs font-bold font-space truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px] ${
                         theme === "dark" ? "text-white" : "text-[#171717]"
                       }`}>
-                        @{usernames[lightboxDesign.userId] || lightboxDesign.userId?.slice(0, 8) || "anonymous"}
+                        @{usernames[lightboxDesign.userId] || "Creator"}
                       </span>
                     </motion.div>
                   )}
@@ -428,24 +650,19 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 )}
 
                 <motion.div
-                  className={`relative w-full h-full flex items-center justify-center ${zoomScale > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"}`}
-                  animate={{ scale: zoomScale }}
-                  transition={{ type: "spring", damping: 30, stiffness: 250 }}
-                  drag={zoomScale > 1}
-                  dragConstraints={imageAreaRef}
-                  dragElastic={0.15}
-                  onDoubleClick={() => {
-                    if (zoomScale > 1) {
-                      setZoomScale(1);
-                    } else {
-                      setZoomScale(2);
-                    }
+                  className="relative w-full h-full flex items-center justify-center"
+                  animate={{ 
+                    x: panOffset.x, 
+                    y: panOffset.y, 
+                    scale: zoomScale 
                   }}
+                  transition={{ type: "spring", damping: 35, stiffness: 280 }}
                 >
                   <img
+                    ref={imageRef}
                     src={lightboxDesign.imageUrl}
                     alt={lightboxDesign.title}
-                    className="w-full h-full max-w-full max-h-full object-contain select-none transition-all duration-300"
+                    className="w-full h-full max-w-full max-h-full object-contain select-none"
                     referrerPolicy="no-referrer"
                   />
                 </motion.div>
@@ -482,7 +699,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     <p className={`text-xs font-bold font-space truncate ${
                       theme === "dark" ? "text-white" : "text-[#171717]"
                     }`}>
-                      @{usernames[lightboxDesign.userId] || lightboxDesign.userId?.slice(0, 8) || "anonymous"}
+                      @{usernames[lightboxDesign.userId] || "Creator"}
                     </p>
                     <span className={`text-[9px] font-mono block ${
                       theme === "dark" ? "text-neutral-400" : "text-neutral-500"
@@ -594,7 +811,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     <p className={`text-xs font-bold font-space truncate ${
                       theme === "dark" ? "text-white" : "text-[#171717]"
                     }`}>
-                      @{usernames[lightboxDesign.userId] || lightboxDesign.userId?.slice(0, 8) || "anonymous"}
+                      @{usernames[lightboxDesign.userId] || "Creator"}
                     </p>
                     <span className={`text-[9px] font-mono block ${
                       theme === "dark" ? "text-neutral-400" : "text-neutral-500"
