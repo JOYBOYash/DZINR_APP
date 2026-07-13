@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { LogOut, Moon, Sun, User, LayoutGrid, ChevronRight, ChevronLeft, Compass } from "lucide-react";
+import { LogOut, Moon, Sun, User, LayoutGrid, ChevronRight, ChevronLeft, Compass, Bookmark } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
         width: isAuthenticated ? (isExpanded ? "240px" : "80px") : "100%" 
       }}
       transition={{ type: "spring", stiffness: 350, damping: 30 }}
-      className={`fixed top-0 left-0 z-50 flex border-divider-light dark:border-divider-dark backdrop-blur-md bg-white/70 dark:bg-[#4A0517]/70 ${
+      className={`fixed top-0 left-0 z-[120] flex border-divider-light dark:border-divider-dark backdrop-blur-md bg-white/70 dark:bg-[#4A0517]/70 ${
         isAuthenticated 
           ? "hidden md:flex flex-col h-screen border-r py-8 justify-between px-4" 
           : "hidden md:flex w-full px-8 py-5 border-b justify-between items-center"
@@ -107,6 +107,44 @@ export const Header: React.FC<HeaderProps> = ({
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
                       Discovery Feed
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </button>
+
+            {/* Saved Vault Tab */}
+            <button
+              id="header-nav-saved"
+              onClick={() => setCurrentPage("saved")}
+              className={`relative flex items-center w-full h-12 rounded-[18px] transition-all cursor-pointer group ${
+                currentPage === "saved"
+                  ? "text-white"
+                  : "text-[#555555] dark:text-[#D7D7D7] hover:bg-[#F7F7F8] dark:hover:bg-white/5"
+              }`}
+            >
+              {currentPage === "saved" && (
+                <motion.div
+                  layoutId="sidebar-active-indicator"
+                  className="absolute inset-0 rounded-[18px] bg-accent shadow-[0_4px_16px_rgba(201,0,35,0.3)]"
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                />
+              )}
+              <div className="relative z-10 flex items-center gap-3.5 px-3.5">
+                <Bookmark
+                  size={20}
+                  strokeWidth={currentPage === "saved" ? 2.5 : 2}
+                  className="shrink-0"
+                />
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -5 }}
+                      className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
+                    >
+                      Saved Vault
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -223,12 +261,12 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="logout-header-btn-sidebar"
             onClick={() => setShowLogoutConfirm(true)}
-            className="flex md:hidden items-center w-full h-12 rounded-[18px] transition-all cursor-pointer text-accent hover:bg-accent/5"
+            className="flex md:hidden items-center w-full h-12 rounded-[18px] transition-all cursor-pointer text-accent dark:text-neutral-200 dark:hover:text-red-400 hover:bg-accent/5 dark:hover:bg-white/5"
           >
             <div className="flex items-center gap-3.5 px-3.5">
               <LogOut size={20} className="shrink-0" />
               {isExpanded && (
-                <span className="text-sm font-space font-medium tracking-wide whitespace-nowrap text-accent font-semibold">
+                <span className="text-sm font-space font-medium tracking-wide whitespace-nowrap text-accent dark:text-neutral-200 font-semibold">
                   Log Out
                 </span>
               )}
@@ -241,7 +279,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="logout-header-btn"
             onClick={() => setShowLogoutConfirm(true)}
-            className="flex items-center gap-2 px-4.5 py-2.5 border border-[#ECECEC] dark:border-white/10 text-accent font-space font-bold uppercase text-xs tracking-wider rounded-[18px] hover:bg-accent/5 bg-white dark:bg-surface-dark transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4.5 py-2.5 border border-[#ECECEC] dark:border-white/10 text-accent dark:text-neutral-200 font-space font-bold uppercase text-xs tracking-wider rounded-[18px] hover:bg-accent/5 dark:hover:bg-white/5 bg-white dark:bg-surface-dark transition-all cursor-pointer"
           >
             <LogOut size={14} />
             <span>Logout</span>

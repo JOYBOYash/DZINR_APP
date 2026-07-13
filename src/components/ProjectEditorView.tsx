@@ -12,6 +12,7 @@ import { Button } from "./Button";
 import { Card } from "./Card";
 import { ImportMethodCard } from "./CreatorWorkspace/ImportMethodCard";
 import { CategorySelector, TagSelector } from "./CreatorWorkspace/Selectors";
+import { getApiUrl } from "../utils/api";
 
 const CATEGORIES = [
   "Carousels", "UI/UX", "Branding", "Posters", "Logos", "Brochures", 
@@ -71,7 +72,7 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
     
     // First try the server proxy
     try {
-      const response = await fetch(`/api/url-metadata?url=${encodeURIComponent(pageUrl)}`);
+      const response = await fetch(getApiUrl(`/api/url-metadata?url=${encodeURIComponent(pageUrl)}`));
       const data = await response.json();
       
       if (data.imageUrls && data.imageUrls.length > 0 && data.imageUrls[0] !== pageUrl) {

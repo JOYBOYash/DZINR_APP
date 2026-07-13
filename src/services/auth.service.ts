@@ -7,6 +7,7 @@ import {
   signOut as firebaseSignOut,
   applyActionCode
 } from 'firebase/auth';
+import { getApiUrl } from '../utils/api';
 
 export const authService = {
   async verifyEmailCode(code: string) {
@@ -83,7 +84,7 @@ export const authService = {
    */
   async sendCustomVerificationEmail(email: string) {
     try {
-      const response = await fetch("/api/auth/send-verification-email", {
+      const response = await fetch(getApiUrl("/api/auth/send-verification-email"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

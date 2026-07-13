@@ -14,6 +14,7 @@ import { ProjectsView } from "./components/ProjectsView";
 import { ProjectEditorView } from "./components/ProjectEditorView";
 import { EditProfileView } from "./components/EditProfileView";
 import { DiscoveryFeedView } from "./components/DiscoveryFeedView";
+import { SavedVaultView } from "./components/SavedVaultView";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { ToastContainer } from "./components/Toast";
 import { NavBar } from "./components/NavBar";
@@ -22,6 +23,7 @@ import { LogoutConfirmModal } from "./components/LogoutConfirmModal";
 import { PWAInstallPopup } from "./components/PWAInstallPopup";
 import { SplashScreen } from "./components/SplashScreen";
 import { getFriendlyAuthError } from "./utils/auth-errors";
+import { getApiUrl } from "./utils/api";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
@@ -45,10 +47,11 @@ export default function App() {
 
   // Navigation states
   const [showSplash, setShowSplash] = useState(true);
-  const [currentPage, setCurrentPage] = useState<"feed" | "profile" | "projects" | "edit-profile" | "project-editor">(
+  const [currentPage, setCurrentPage] = useState<"feed" | "profile" | "projects" | "edit-profile" | "project-editor" | "saved">(
     "feed",
   );
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const [loadingMessage, setLoadingMessage] =
     useState<string>("Authenticating");
@@ -140,7 +143,7 @@ export default function App() {
             
             // Attempt standard Firebase Auth user deletion client-side and server-side
             try {
-              await fetch('/api/auth/delete-user', {
+              await fetch(getApiUrl('/api/auth/delete-user'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uid: userId })
@@ -460,9 +463,9 @@ export default function App() {
 
       {/* 2. MAIN LAYOUT CONTAINER */}
       <main
-        className={`flex-1 w-full relative z-10 flex flex-col ${
+        className={`flex-1 w-full relative flex flex-col ${
           showNav
-            ? "max-w-[1400px] mx-auto px-4 md:px-12 py-6 pb-24 md:pb-6 md:pl-[120px] items-center" // Extra padding for sidebar on desktop
+            ? "max-w-[1400px] mx-auto px-4 md:px-12 py-6 pb-16 md:pb-6 md:pl-[120px] items-center" // Extra padding for sidebar on desktop
             : "px-0 py-0 w-full max-w-none items-start"
         }`}
       >
@@ -519,6 +522,13 @@ export default function App() {
                   theme={theme}
                   onClose={() => setCurrentPage("profile")}
                 />
+              ) : currentPage === "saved" ? (
+                <SavedVaultView
+                  user={user!}
+                  theme={theme}
+                  onExploreFeed={() => setCurrentPage("feed")}
+                  onLightboxToggle={setIsLightboxOpen}
+                />
               ) : currentPage === "feed" ? (
                 <DiscoveryFeedView
                   user={user!}
@@ -539,6 +549,7 @@ export default function App() {
                   onEditProfile={() => setCurrentPage("edit-profile")}
                   onLogout={() => setShowLogoutConfirm(true)}
                   onToggleTheme={toggleTheme}
+                  onViewSavedVault={() => setCurrentPage("saved")}
                 />
               )}
             </motion.div>

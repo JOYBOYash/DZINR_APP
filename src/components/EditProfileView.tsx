@@ -290,7 +290,7 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
                 <X size={20} />
               </button>
               <div>
-                <h3 className="font-space font-bold text-base uppercase tracking-wider text-accent">
+                <h3 className="font-space font-bold text-base uppercase tracking-wider text-accent dark:text-white">
                   Edit Preset
                 </h3>
               </div>
@@ -325,7 +325,7 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
               onClick={() => setActiveTab("basic")}
               className={`flex-1 py-4 text-center text-xs font-space font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                 activeTab === "basic"
-                  ? "border-accent text-accent"
+                  ? "border-accent text-accent dark:border-white dark:text-white"
                   : "border-transparent text-[#888888] hover:text-[#555555]"
               }`}
             >
@@ -337,7 +337,7 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
               onClick={() => setActiveTab("preferences")}
               className={`flex-1 py-4 text-center text-xs font-space font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                 activeTab === "preferences"
-                  ? "border-accent text-accent"
+                  ? "border-accent text-accent dark:border-white dark:text-white"
                   : "border-transparent text-[#888888] hover:text-[#555555]"
               }`}
             >

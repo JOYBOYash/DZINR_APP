@@ -35,6 +35,7 @@ import { useToastStore } from "../stores/toast.store";
 import { userService } from "../services/user.service";
 import { authService } from "../services/auth.service";
 import { auth } from "../services/firebase";
+import { getApiUrl } from "../utils/api";
 import { Modal } from "./Modal";
 
 interface DashboardViewProps {
@@ -47,6 +48,7 @@ interface DashboardViewProps {
   onEditProfile: () => void;
   onLogout: () => void;
   onToggleTheme: () => void;
+  onViewSavedVault?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -59,6 +61,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onEditProfile,
   onLogout,
   onToggleTheme,
+  onViewSavedVault,
 }) => {
   const queryClient = useQueryClient();
   const { showToast } = useToastStore();
@@ -78,18 +81,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [allowOutreach, setAllowOutreach] = useState(true);
   const [outreachEmail, setOutreachEmail] = useState(user.email || "");
 
+  const [metrics, setMetrics] = useState<any>(null);
+  const [isMetricsLoading, setIsMetricsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setIsMetricsLoading(true);
+    const unsubscribe = discoveryService.subscribeCreatorMetrics(user.id, (updatedMetrics) => {
+      setMetrics(updatedMetrics);
+      setIsMetricsLoading(false);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.id]);
+
   useEffect(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
-
-  const { data: metrics, isLoading: isMetricsLoading } = useQuery({
-    queryKey: ["creatorMetrics", user.id],
-    queryFn: () => discoveryService.getCreatorMetrics(user.id),
-    enabled: !!user.id,
-  });
 
   const completionPercentage = (() => {
     let score = 10;
@@ -143,7 +155,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       
       // 2. Try to delete user in Firebase Auth client-side and server-side
       try {
-        await fetch('/api/auth/delete-user', {
+        await fetch(getApiUrl('/api/auth/delete-user'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uid: user.id })
@@ -534,6 +546,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* SECTION 3: Saved Inspirations Vault CTA */}
+      {onViewSavedVault && (
+        <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">
+          <div className="p-8 rounded-[32px] bg-neutral-50 dark:bg-white/1 border border-dashed border-[#ECECEC] dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-left flex-1">
+              <span className="text-[10px] font-mono uppercase text-accent tracking-widest font-bold">
+                Private Aesthetic Archive
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold font-space text-[#171717] dark:text-white tracking-tight mt-1">
+                Aesthetic Vault
+              </h2>
+              <p className="text-sm text-[#555555] dark:text-[#D7D7D7] mt-1.5 leading-relaxed max-w-2xl">
+                Access your curated collection of interface layouts, branding designs, and wireframes. Fully synchronized in real-time.
+              </p>
+            </div>
+            <Button
+              id="dashboard-saved-vault-cta"
+              onClick={onViewSavedVault}
+              className="py-3 px-6 text-sm font-semibold shrink-0 flex items-center justify-center gap-1.5"
+            >
+              <Bookmark size={15} />
+              <span>Open Saved Vault</span>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {deferredPrompt && (
         <div className="mt-6 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-accent/20 bg-accent/5 rounded-[24px]">

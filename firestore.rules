@@ -107,7 +107,7 @@ service cloud.firestore {
       allow get: if isSignedIn() && isValidId(designId);
       allow list: if isSignedIn();
       allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidDesign(incoming()) && isValidId(designId);
-      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid && isValidDesign(incoming()) && isValidId(designId);
+      allow update: if isSignedIn();
       allow delete: if isSignedIn() && existing().userId == request.auth.uid && isValidId(designId);
     }
 
@@ -123,6 +123,16 @@ service cloud.firestore {
       allow get: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidDeleted(incoming()) && isValidId(userId);
       allow delete: if false;
+    }
+
+    match /userFeedHistory/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
+    }
+
+    match /swipes/{swipeId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource == null || existing().userId == request.auth.uid);
     }
   }
 }

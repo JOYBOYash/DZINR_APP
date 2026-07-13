@@ -11,6 +11,7 @@ import {
   orderBy, 
   limit 
 } from 'firebase/firestore';
+import { getApiUrl } from '../utils/api';
 
 export interface Project {
   id: string;
@@ -62,7 +63,7 @@ export const projectService = {
    */
   async syncBehanceProjects(userId: string, username: string): Promise<Project[]> {
     try {
-      const res = await fetch(`/api/sync/behance?username=${encodeURIComponent(username)}`);
+      const res = await fetch(getApiUrl(`/api/sync/behance?username=${encodeURIComponent(username)}`));
       if (!res.ok) {
         throw new Error(`Server returned status ${res.status}`);
       }

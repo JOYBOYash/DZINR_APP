@@ -18,6 +18,7 @@ import { ProfileAvatar } from './ProfileAvatar';
 import { ProfileForm } from './ProfileForm';
 import { userService } from '../services/user.service';
 import { designService } from '../services/design.service';
+import { getApiUrl } from '../utils/api';
 import { zipImportService } from '../services/zipImport.service';
 import { cloudinaryService } from '../services/cloudinary.service';
 import { imageCompressionService } from '../services/imageCompression.service';
@@ -78,7 +79,7 @@ export const ProfileSetupFlow: React.FC<ProfileSetupFlowProps> = ({
     }
     
     try {
-      const response = await fetch(`/api/url-metadata?url=${encodeURIComponent(pageUrl)}`);
+      const response = await fetch(getApiUrl(`/api/url-metadata?url=${encodeURIComponent(pageUrl)}`));
       const data = await response.json();
       if (data.imageUrls && data.imageUrls.length > 0) {
         return data.imageUrls;

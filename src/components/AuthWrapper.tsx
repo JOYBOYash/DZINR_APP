@@ -104,12 +104,6 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
         }
         setFirebaseUser(user);
       } else {
-        const { userService } = await import('../services/user.service');
-        const emailExists = await userService.checkEmailExists(email);
-        if (!emailExists) {
-          showToast('No profile exists with this email address. Please sign up.', 'error');
-          return;
-        }
         const user = await authService.signInWithEmail(email, password);
         if (user && !user.emailVerified && user.email) {
           await authService.sendCustomVerificationEmail(user.email).catch((e) => {

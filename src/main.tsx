@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
 import './index.css';
+import { initApiDetection } from './utils/api.ts';
+
+// Auto-detect and persist backend URL for PWA/hybrid scenarios
+initApiDetection();
 
 // Initialize the TanStack Query Client
 const queryClient = new QueryClient({

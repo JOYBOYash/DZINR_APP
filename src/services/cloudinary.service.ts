@@ -1,3 +1,5 @@
+import { getApiUrl } from '../utils/api';
+
 export const cloudinaryService = {
   async uploadFromUrl(url: string): Promise<{ url: string; thumbnailUrl: string }> {
     const cloudName = (import.meta as any).env.NEXT_PUBLIC_CLOUD_NAME;
@@ -69,7 +71,7 @@ export const cloudinaryService = {
   
   async deleteImage(url: string): Promise<void> {
     try {
-      await fetch("/api/cloudinary/delete", {
+      await fetch(getApiUrl("/api/cloudinary/delete"), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),

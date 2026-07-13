@@ -160,9 +160,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ECECEC] dark:border-white/10 pb-4">
         <div>
-          <span className="text-[10px] font-mono uppercase text-accent tracking-widest font-bold">Workspace Portfolio</span>
+          <span className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
+            theme === "dark" ? "text-white" : "text-accent"
+          }`}>Workspace Portfolio</span>
           <h1 className="text-xl sm:text-2xl font-bold font-space tracking-tight flex items-center gap-2 text-[#171717] dark:text-white mt-0.5">
-            <Layers className="text-accent" size={20} />
+            <Layers className={theme === "dark" ? "text-white" : "text-accent"} size={20} />
             <span>My Designs Layouts</span>
           </h1>
           <p className="text-xs text-[#555555] dark:text-[#D7D7D7] mt-1 leading-relaxed">
@@ -186,7 +188,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
           onClick={() => setActiveTab("drafts")}
           className={`pb-3.5 px-1 text-sm font-space font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
             activeTab === "drafts" 
-              ? "border-accent text-accent" 
+              ? "border-accent text-accent dark:border-white dark:text-white" 
               : "border-transparent text-[#888888] hover:text-[#555555]"
           }`}
         >
@@ -196,7 +198,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
           onClick={() => setActiveTab("published")}
           className={`pb-3.5 px-1 text-sm font-space font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
             activeTab === "published" 
-              ? "border-accent text-accent" 
+              ? "border-accent text-accent dark:border-white dark:text-white" 
               : "border-transparent text-[#888888] hover:text-[#555555]"
           }`}
         >

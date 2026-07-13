@@ -6,12 +6,14 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
   limit,
   startAfter,
   DocumentSnapshot,
+  onSnapshot,
 } from "firebase/firestore";
 import { UserProfile } from "../types";
 import { Design } from "./design.service";
@@ -101,26 +103,15 @@ export const discoveryService = {
       const history = await this.getUserFeedHistory(user.id);
       const viewedSet = new Set(history?.viewedDesignIds || []);
 
-      // 2. Query designs collection
+      // 2. Query designs collection (No orderBy constraint to avoid requiring a composite index)
       let q = query(
         collection(db, "designs"),
         where("status", "==", "published"),
-        orderBy("publishedAt", "desc"),
-        limit(50) // fetch a larger candidate pool to filter on client
+        limit(150) // fetch a larger candidate pool to filter on client
       );
 
-      if (lastVisibleDoc) {
-        q = query(
-          collection(db, "designs"),
-          where("status", "==", "published"),
-          orderBy("publishedAt", "desc"),
-          startAfter(lastVisibleDoc),
-          limit(50)
-        );
-      }
-
       const snapshot = await getDocs(q);
-      const candidates: Design[] = [];
+      let candidates: Design[] = [];
       let lastDoc: DocumentSnapshot | null = null;
 
       if (!snapshot.empty) {
@@ -129,6 +120,13 @@ export const discoveryService = {
           candidates.push({ id: docSnap.id, ...docSnap.data() } as Design);
         });
       }
+
+      // Sort candidate designs by publishedAt descending in-memory
+      candidates.sort((a, b) => {
+        const timeA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const timeB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+        return timeB - timeA;
+      });
 
       // 3. Filter candidates
       const filtered = candidates.filter((design) => {
@@ -231,14 +229,22 @@ export const discoveryService = {
           (stats.leftSwipes || 0) + (stats.rightSwipes || 0) + (stats.saves || 0);
         const engagementRate = totalViews > 0 ? totalInteractions / totalViews : 0;
 
-        await updateDoc(designRef, {
-          "stats.totalViews": totalViews,
-          "stats.engagementRate": engagementRate,
-          "stats.updatedAt": new Date().toISOString(),
-        });
+        try {
+          await updateDoc(designRef, {
+            "stats.totalViews": totalViews,
+            "stats.engagementRate": engagementRate,
+            "stats.updatedAt": new Date().toISOString(),
+          });
+        } catch (updateErr: any) {
+          if (updateErr?.code !== "permission-denied" && !updateErr?.message?.includes("permission")) {
+            console.warn(`Failed to update design view stats for ${designId}:`, updateErr);
+          }
+        }
       }
-    } catch (err) {
-      console.warn(`Failed to increment views on design ${designId}:`, err);
+    } catch (err: any) {
+      if (err?.code !== "permission-denied" && !err?.message?.includes("permission")) {
+        console.warn(`Failed to increment views on design ${designId}:`, err);
+      }
     }
   },
 
@@ -258,7 +264,6 @@ export const discoveryService = {
       const swipeDoc = await getDoc(swipeRef);
       
       if (swipeDoc.exists()) {
-        console.log("User already swiped on this design.");
         return; // No duplicate swipes allowed
       }
 
@@ -296,19 +301,25 @@ export const discoveryService = {
         // Simple statistical confidence metric (converges to 1.0 as interactions hit 50 reviews)
         const confidence = Math.min(1.0, totalInteractions / 50);
 
-        await updateDoc(designRef, {
-          stats: {
-            leftSwipes,
-            rightSwipes,
-            saves,
-            totalInteractions,
-            totalViews,
-            score,
-            engagementRate,
-            confidence,
-            updatedAt: new Date().toISOString(),
-          },
-        });
+        try {
+          await updateDoc(designRef, {
+            stats: {
+              leftSwipes,
+              rightSwipes,
+              saves,
+              totalInteractions,
+              totalViews,
+              score,
+              engagementRate,
+              confidence,
+              updatedAt: new Date().toISOString(),
+            },
+          });
+        } catch (statsErr: any) {
+          if (statsErr?.code !== "permission-denied" && !statsErr?.message?.includes("permission")) {
+            console.warn(`Failed to update aggregate design stats for ${designId}:`, statsErr);
+          }
+        }
       }
 
       // 3. Append to User Feed History so the card is never suggested again
@@ -367,5 +378,142 @@ export const discoveryService = {
         reviewVelocity: 0,
       };
     }
+  },
+
+  /**
+   * Fetches all designs swiped as 'save' by the specified user.
+   */
+  async getUserSavedDesigns(userId: string): Promise<Design[]> {
+    try {
+      const q = query(
+        collection(db, "swipes"),
+        where("userId", "==", userId),
+        where("action", "==", "save")
+      );
+      const snapshot = await getDocs(q);
+      const designIds = snapshot.docs.map((docSnap) => docSnap.data().designId as string);
+      
+      if (designIds.length === 0) return [];
+      
+      const designs: Design[] = [];
+      const chunks: string[][] = [];
+      for (let i = 0; i < designIds.length; i += 30) {
+        chunks.push(designIds.slice(i, i + 30));
+      }
+      
+      for (const chunk of chunks) {
+        const designsQuery = query(
+          collection(db, "designs"),
+          where("id", "in", chunk)
+        );
+        const designsSnap = await getDocs(designsQuery);
+        designsSnap.forEach((docSnap) => {
+          designs.push({ id: docSnap.id, ...docSnap.data() } as Design);
+        });
+      }
+      
+      return designs;
+    } catch (err) {
+      console.warn("Failed to fetch user saved designs:", err);
+      return [];
+    }
+  },
+
+  /**
+   * Deletes a user's swipe record to unsave/remove from inspirations archive.
+   */
+  async unsaveDesign(userId: string, designId: string): Promise<void> {
+    try {
+      const swipeId = `${userId}_${designId}`;
+      const swipeRef = doc(db, "swipes", swipeId);
+      await deleteDoc(swipeRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `swipes/${userId}_${designId}`);
+    }
+  },
+
+  /**
+   * Listens to real-time changes in the user's saved designs.
+   */
+  subscribeUserSavedDesigns(userId: string, callback: (designs: Design[]) => void): () => void {
+    const q = query(
+      collection(db, "swipes"),
+      where("userId", "==", userId),
+      where("action", "==", "save")
+    );
+
+    return onSnapshot(q, async (snapshot) => {
+      const designIds = snapshot.docs.map((docSnap) => docSnap.data().designId as string);
+      if (designIds.length === 0) {
+        callback([]);
+        return;
+      }
+
+      try {
+        const designs: Design[] = [];
+        const chunks: string[][] = [];
+        for (let i = 0; i < designIds.length; i += 30) {
+          chunks.push(designIds.slice(i, i + 30));
+        }
+        
+        for (const chunk of chunks) {
+          const designsQuery = query(
+            collection(db, "designs"),
+            where("id", "in", chunk)
+          );
+          const designsSnap = await getDocs(designsQuery);
+          designsSnap.forEach((docSnap) => {
+            designs.push({ id: docSnap.id, ...docSnap.data() } as Design);
+          });
+        }
+        callback(designs);
+      } catch (err) {
+        console.warn("Failed to update saved designs subscription:", err);
+      }
+    }, (err) => {
+      console.warn("Saved designs onSnapshot failed:", err);
+    });
+  },
+
+  /**
+   * Subscribes to real-time creator metrics based on their published designs.
+   */
+  subscribeCreatorMetrics(userId: string, callback: (metrics: CreatorMetrics) => void): () => void {
+    const q = query(
+      collection(db, "designs"),
+      where("userId", "==", userId),
+      where("status", "==", "published")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      let totalReviews = 0;
+      let rightSwipes = 0;
+      let saves = 0;
+      let scoreSum = 0;
+      let designsCount = 0;
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const stats = data.stats || {};
+        totalReviews += (stats.leftSwipes || 0) + (stats.rightSwipes || 0) + (stats.saves || 0);
+        rightSwipes += stats.rightSwipes || 0;
+        saves += stats.saves || 0;
+        scoreSum += stats.score || 0;
+        designsCount += 1;
+      });
+
+      const averageScore = designsCount > 0 ? scoreSum / designsCount : 0;
+      const reviewVelocity = designsCount > 0 ? totalReviews / designsCount : 0;
+
+      callback({
+        totalReviews,
+        rightSwipes,
+        saves,
+        currentScore: parseFloat(averageScore.toFixed(2)),
+        reviewVelocity: parseFloat(reviewVelocity.toFixed(1)),
+      });
+    }, (err) => {
+      console.warn("subscribeCreatorMetrics onSnapshot error:", err);
+    });
   },
 };
