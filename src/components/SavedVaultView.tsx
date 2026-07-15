@@ -8,6 +8,7 @@ import { userService } from "../services/user.service";
 import { useToastStore } from "../stores/toast.store";
 import { Loader } from "./Loader";
 import { EmptyState } from "./EmptyState";
+import { Tooltip } from "./Tooltip";
 
 interface SavedVaultViewProps {
   user: UserProfile;
@@ -547,44 +548,47 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               {/* Control Buttons on Right */}
               <div className="flex items-center gap-2 pointer-events-auto">
                 {/* Unsave Toggle Button */}
-                <button
-                  onClick={() => handleUnsave(lightboxDesign.id)}
-                  disabled={isUnsavingId === lightboxDesign.id}
-                  className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
-                    theme === "dark"
-                      ? "bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border-red-500/20"
-                      : "bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border-red-200"
-                  }`}
-                  title="Unsave from Vault"
-                >
-                  <Trash2 size={18} className="stroke-[2.5]" />
-                </button>
+                <Tooltip content="Remove from Saved" theme={theme} position="bottom">
+                  <button
+                    onClick={() => handleUnsave(lightboxDesign.id)}
+                    disabled={isUnsavingId === lightboxDesign.id}
+                    className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                      theme === "dark"
+                        ? "bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border-red-500/20"
+                        : "bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border-red-200"
+                    }`}
+                  >
+                    <Trash2 size={18} className="stroke-[2.5]" />
+                  </button>
+                </Tooltip>
 
                 {/* Collapse/Expand Toggle Button */}
-                <button
-                  onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-                  className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
-                    theme === "dark"
-                      ? "bg-[#5A0A20]/80 hover:bg-[#68102A] text-white border-[#68102A]"
-                      : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
-                  }`}
-                  title={isPanelCollapsed ? "Show details" : "Hide details"}
-                >
-                  <Info size={18} className="stroke-[2.5]" />
-                </button>
+                <Tooltip content={isPanelCollapsed ? "Show Details" : "Hide Details"} theme={theme} position="bottom">
+                  <button
+                    onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+                    className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                      theme === "dark"
+                        ? "bg-[#5A0A20]/80 hover:bg-[#68102A] text-white border-[#68102A]"
+                        : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
+                    }`}
+                  >
+                    <Info size={18} className="stroke-[2.5]" />
+                  </button>
+                </Tooltip>
 
                 {/* Close Button */}
-                <button
-                  onClick={() => setLightboxDesign(null)}
-                  className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
-                    theme === "dark"
-                      ? "bg-[#5A0A20]/80 hover:bg-[#68102A] text-white border-[#68102A]"
-                      : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
-                  }`}
-                  title="Close Fullscreen"
-                >
-                  <X size={18} className="stroke-[2.5]" />
-                </button>
+                <Tooltip content="Close Viewer" theme={theme} position="bottom">
+                  <button
+                    onClick={() => setLightboxDesign(null)}
+                    className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                      theme === "dark"
+                        ? "bg-[#5A0A20]/80 hover:bg-[#68102A] text-white border-[#68102A]"
+                        : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
+                    }`}
+                  >
+                    <X size={18} className="stroke-[2.5]" />
+                  </button>
+                </Tooltip>
               </div>
             </div>
 

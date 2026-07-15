@@ -66,14 +66,23 @@ export default function App() {
   // Sync theme to document element and body element to prevent white overscroll bands
   useEffect(() => {
     const root = document.documentElement;
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (theme === "dark") {
       root.classList.add("dark");
+      root.style.backgroundColor = "#4A0517";
       document.body.classList.add("dark");
       document.body.style.backgroundColor = "#4A0517";
+      if (themeColorMeta) {
+        themeColorMeta.setAttribute("content", "#4A0517");
+      }
     } else {
       root.classList.remove("dark");
+      root.style.backgroundColor = "#FFFFFF";
       document.body.classList.remove("dark");
       document.body.style.backgroundColor = "#FFFFFF";
+      if (themeColorMeta) {
+        themeColorMeta.setAttribute("content", "#FFFFFF");
+      }
     }
   }, [theme]);
 
@@ -465,9 +474,10 @@ export default function App() {
       <main
         className={`flex-1 w-full relative flex flex-col ${
           showNav
-            ? "max-w-[1400px] mx-auto px-4 md:px-12 py-6 pb-16 md:pb-6 md:pl-[120px] items-center" // Extra padding for sidebar on desktop
+            ? "max-w-[1400px] mx-auto px-4 md:px-12 py-6 md:pl-[120px] items-center" // Extra padding for sidebar on desktop
             : "px-0 py-0 w-full max-w-none items-start"
         }`}
+        style={showNav ? { paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" } : undefined}
       >
         <AuthWrapper
           isAuthenticated={isAuthenticated}

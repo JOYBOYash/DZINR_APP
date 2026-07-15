@@ -13,6 +13,7 @@ import { Card } from "./Card";
 import { ImportMethodCard } from "./CreatorWorkspace/ImportMethodCard";
 import { CategorySelector, TagSelector } from "./CreatorWorkspace/Selectors";
 import { getApiUrl } from "../utils/api";
+import { Tooltip } from "./Tooltip";
 
 const CATEGORIES = [
   "Carousels", "UI/UX", "Branding", "Posters", "Logos", "Brochures", 
@@ -185,14 +186,30 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
     }
   };
 
-  const handleManualUpload = async (file: File) => {
+  const handleManualUpload = async (files: FileList | File[]) => {
     setUploading(true);
     try {
-      const compressed = await imageCompressionService.compressImage(file);
-      const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
+      const uploadedUrls: string[] = [];
+      let primaryThumb = "";
+      const fileCount = files.length;
+      showToast(`Compressing and uploading ${fileCount} images...`, "info");
 
-      if (url) {
-        sessionCloudinaryUrls.current.push(url);
+      for (let i = 0; i < fileCount; i++) {
+        const file = files[i];
+        const compressed = await imageCompressionService.compressImage(file);
+        const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
+        if (url) {
+          uploadedUrls.push(url);
+          sessionCloudinaryUrls.current.push(url);
+          if (i === 0) {
+            primaryThumb = thumbnailUrl || url;
+          }
+        }
+      }
+
+      if (uploadedUrls.length === 0) {
+        showToast("No images uploaded successfully.", "error");
+        return;
       }
 
       setEditingDraft({
@@ -202,9 +219,9 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
         sourceId: null,
         title: "",
         description: "",
-        imageUrl: url,
-        thumbnailUrl,
-        imageUrls: [url],
+        imageUrl: uploadedUrls[0],
+        thumbnailUrl: primaryThumb,
+        imageUrls: uploadedUrls,
         category: null,
         format: null,
         styles: [],
@@ -217,9 +234,9 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
         stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
       });
       setUploadMode("none");
-      showToast("Image uploaded to local draft.", "success");
+      showToast(`Uploaded ${uploadedUrls.length} images to local project draft.`, "success");
     } catch (err: any) {
-      showToast(err.message || "Failed to upload image.", "error");
+      showToast(err.message || "Failed to upload images.", "error");
     } finally {
       setUploading(false);
     }
@@ -521,7 +538,8 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                 accept="image/*"
                 ref={fileInputRef}
                 className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleManualUpload(e.target.files[0])}
+                multiple
+                onChange={(e) => e.target.files && e.target.files.length > 0 && handleManualUpload(e.target.files)}
               />
               <div className="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center mb-4">
                 <Upload size={22} />
@@ -716,57 +734,59 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                         : [editingDraft.imageUrl].filter(Boolean)
                       ).map((url, index) => (
                         <div key={url + index} className="relative group/thumb shrink-0">
-                          {/* Rearrange buttons */}
+                           {/* Rearrange buttons */}
                           <div className="absolute top-1.5 inset-x-1.5 flex justify-between pointer-events-none z-20 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
                             {index > 0 ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const currentUrls = [...(editingDraft.imageUrls && editingDraft.imageUrls.length > 0
-                                    ? editingDraft.imageUrls
-                                    : [editingDraft.imageUrl])];
-                                  const temp = currentUrls[index];
-                                  currentUrls[index] = currentUrls[index - 1];
-                                  currentUrls[index - 1] = temp;
-                                  setEditingDraft({
-                                    ...editingDraft,
-                                    imageUrls: currentUrls,
-                                    imageUrl: currentUrls[0],
-                                  });
-                                  setActiveImageIdx(index - 1);
-                                  showToast("Image moved left.", "success");
-                                }}
-                                className="w-5 h-5 rounded-full bg-black/70 hover:bg-accent text-white flex items-center justify-center pointer-events-auto cursor-pointer transition-colors"
-                                title="Move Left"
-                              >
-                                <ChevronLeft size={12} strokeWidth={2.5} />
-                              </button>
+                              <Tooltip content="Move Left" theme={theme} position="top">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const currentUrls = [...(editingDraft.imageUrls && editingDraft.imageUrls.length > 0
+                                      ? editingDraft.imageUrls
+                                      : [editingDraft.imageUrl])];
+                                    const temp = currentUrls[index];
+                                    currentUrls[index] = currentUrls[index - 1];
+                                    currentUrls[index - 1] = temp;
+                                    setEditingDraft({
+                                      ...editingDraft,
+                                      imageUrls: currentUrls,
+                                      imageUrl: currentUrls[0],
+                                    });
+                                    setActiveImageIdx(index - 1);
+                                    showToast("Image moved left.", "success");
+                                  }}
+                                  className="w-5 h-5 rounded-full bg-black/70 hover:bg-accent text-white flex items-center justify-center pointer-events-auto cursor-pointer transition-colors"
+                                >
+                                  <ChevronLeft size={12} strokeWidth={2.5} />
+                                </button>
+                              </Tooltip>
                             ) : <div />}
                             {index < (((editingDraft.imageUrls && editingDraft.imageUrls.length > 0) ? editingDraft.imageUrls : [editingDraft.imageUrl]).length - 1) && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const currentUrls = [...(editingDraft.imageUrls && editingDraft.imageUrls.length > 0
-                                    ? editingDraft.imageUrls
-                                    : [editingDraft.imageUrl])];
-                                  const temp = currentUrls[index];
-                                  currentUrls[index] = currentUrls[index + 1];
-                                  currentUrls[index + 1] = temp;
-                                  setEditingDraft({
-                                    ...editingDraft,
-                                    imageUrls: currentUrls,
-                                    imageUrl: currentUrls[0],
-                                  });
-                                  setActiveImageIdx(index + 1);
-                                  showToast("Image moved right.", "success");
-                                }}
-                                className="w-5 h-5 rounded-full bg-black/70 hover:bg-accent text-white flex items-center justify-center pointer-events-auto cursor-pointer transition-colors ml-auto"
-                                title="Move Right"
-                              >
-                                <ChevronRight size={12} strokeWidth={2.5} />
-                              </button>
+                              <Tooltip content="Move Right" theme={theme} position="top">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const currentUrls = [...(editingDraft.imageUrls && editingDraft.imageUrls.length > 0
+                                      ? editingDraft.imageUrls
+                                      : [editingDraft.imageUrl])];
+                                    const temp = currentUrls[index];
+                                    currentUrls[index] = currentUrls[index + 1];
+                                    currentUrls[index + 1] = temp;
+                                    setEditingDraft({
+                                      ...editingDraft,
+                                      imageUrls: currentUrls,
+                                      imageUrl: currentUrls[0],
+                                    });
+                                    setActiveImageIdx(index + 1);
+                                    showToast("Image moved right.", "success");
+                                  }}
+                                  className="w-5 h-5 rounded-full bg-black/70 hover:bg-accent text-white flex items-center justify-center pointer-events-auto cursor-pointer transition-colors ml-auto"
+                                >
+                                  <ChevronRight size={12} strokeWidth={2.5} />
+                                </button>
+                              </Tooltip>
                             )}
                           </div>
 
@@ -809,37 +829,38 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                             )}
                           </div>
 
-                          {(((editingDraft.imageUrls && editingDraft.imageUrls.length > 0)
+                           {(((editingDraft.imageUrls && editingDraft.imageUrls.length > 0)
                             ? editingDraft.imageUrls
                             : [editingDraft.imageUrl]
                           ).length > 1) && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const currentUrls = editingDraft.imageUrls && editingDraft.imageUrls.length > 0
-                                  ? editingDraft.imageUrls
-                                  : [editingDraft.imageUrl];
-                                const urlToDelete = currentUrls[index];
-                                const updatedUrls = currentUrls.filter((_, i) => i !== index);
-                                const newActiveIdx = Math.max(0, index - 1);
-                                setEditingDraft({
-                                  ...editingDraft,
-                                  imageUrls: updatedUrls,
-                                  imageUrl: updatedUrls[0] || "",
-                                });
-                                setActiveImageIdx(newActiveIdx);
-                                if (urlToDelete) {
-                                  sessionCloudinaryUrls.current = sessionCloudinaryUrls.current.filter(u => u !== urlToDelete);
-                                  import('../services/cloudinary.service').then(m => m.cloudinaryService.deleteImage(urlToDelete));
-                                }
-                                showToast("Photo removed.", "success");
-                              }}
-                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center shadow-md cursor-pointer z-10"
-                              title="Remove Photo"
-                            >
-                              <X size={10} strokeWidth={3} />
-                            </button>
+                            <Tooltip content="Delete Slide" theme={theme} position="top">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const currentUrls = editingDraft.imageUrls && editingDraft.imageUrls.length > 0
+                                    ? editingDraft.imageUrls
+                                    : [editingDraft.imageUrl];
+                                  const urlToDelete = currentUrls[index];
+                                  const updatedUrls = currentUrls.filter((_, i) => i !== index);
+                                  const newActiveIdx = Math.max(0, index - 1);
+                                  setEditingDraft({
+                                    ...editingDraft,
+                                    imageUrls: updatedUrls,
+                                    imageUrl: updatedUrls[0] || "",
+                                  });
+                                  setActiveImageIdx(newActiveIdx);
+                                  if (urlToDelete) {
+                                    sessionCloudinaryUrls.current = sessionCloudinaryUrls.current.filter(u => u !== urlToDelete);
+                                    import('../services/cloudinary.service').then(m => m.cloudinaryService.deleteImage(urlToDelete));
+                                  }
+                                  showToast("Photo removed.", "success");
+                                }}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center shadow-md cursor-pointer z-10"
+                              >
+                                <X size={10} strokeWidth={3} />
+                              </button>
+                            </Tooltip>
                           )}
                         </div>
                       ))}

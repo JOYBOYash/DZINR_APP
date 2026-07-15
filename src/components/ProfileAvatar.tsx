@@ -207,12 +207,13 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
                   ? 'bg-red-500/5 border-red-500/15 text-red-200/90'
                   : 'bg-red-50/50 border-red-500/15 text-red-900/90'
               }`}>
-                <p className="font-black tracking-tight text-accent mb-1.5">
-                  🛠️ How to Create an Unsigned Upload Preset:
+                <p className="font-black tracking-tight text-accent mb-1.5 flex items-center gap-1.5">
+                  <ShieldAlert size={12} />
+                  <span>How to Create an Unsigned Upload Preset:</span>
                 </p>
                 <ol className="list-decimal list-inside space-y-1 opacity-90">
                   <li>Log in to your <strong>Cloudinary console</strong>.</li>
-                  <li>Click the ⚙️ <strong>Settings</strong> icon in the bottom-left corner.</li>
+                  <li>Click the <strong>Settings</strong> gear icon in the bottom-left corner.</li>
                   <li>Under Settings, select the <strong>Upload</strong> menu.</li>
                   <li>Scroll down to the <strong>Upload presets</strong> section.</li>
                   <li>Click <strong>Add upload preset</strong>.</li>
