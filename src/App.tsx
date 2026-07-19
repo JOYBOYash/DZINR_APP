@@ -451,7 +451,7 @@ export default function App() {
   return (
     <div
       id="app-root-theme-container"
-      className={`min-h-screen relative flex flex-col transition-colors duration-300 font-sans ${
+      className={`min-h-[100dvh] relative flex flex-col transition-colors duration-300 font-sans ${
         theme === "dark"
           ? "dark bg-[#121212] text-white"
           : "bg-[#FFFFFF] text-[#171717]"

@@ -8,6 +8,8 @@ import { userService } from "../services/user.service";
 import { useToastStore } from "../stores/toast.store";
 import { Loader } from "./Loader";
 import { EmptyState } from "./EmptyState";
+import { Modal } from "./Modal";
+import { Button } from "./Button";
 import { Tooltip } from "./Tooltip";
 
 interface SavedVaultViewProps {
@@ -29,6 +31,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
   const [visibleCount, setVisibleCount] = useState<number>(10);
   const [lightboxDesign, setLightboxDesign] = useState<Design | null>(null);
   const [isUnsavingId, setIsUnsavingId] = useState<string | null>(null);
+  const [designToDelete, setDesignToDelete] = useState<Design | null>(null);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(() =>
     typeof window !== "undefined" && window.innerWidth < 768
@@ -419,11 +422,11 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               if (profile) {
                 resolvedNames[creatorId] = profile.username;
               } else {
-                resolvedNames[creatorId] = "creator";
+                resolvedNames[creatorId] = "Deleted Account";
               }
             } catch (err) {
               console.warn("Error fetching user profile for verification:", creatorId, err);
-              resolvedNames[creatorId] = "creator";
+              resolvedNames[creatorId] = "Deleted Account";
             }
             validDesigns.push(design);
           })
@@ -497,6 +500,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       showToast("Could not remove design. Try again.", "error");
     } finally {
       setIsUnsavingId(null);
+      setDesignToDelete(null);
     }
   };
 
@@ -582,7 +586,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleUnsave(design.id);
+                        setDesignToDelete(design);
                       }}
                       disabled={isUnsavingId === design.id}
                       className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
@@ -675,7 +679,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 {/* Unsave Toggle Button */}
                 <Tooltip content="Remove from Saved" theme={theme} position="bottom">
                   <button
-                    onClick={() => handleUnsave(lightboxDesign.id)}
+                    onClick={() => setDesignToDelete(lightboxDesign)}
                     disabled={isUnsavingId === lightboxDesign.id}
                     className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
                       theme === "dark"
@@ -1047,6 +1051,37 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Deletion Confirmation Modal */}
+      <Modal
+        id="delete-design-modal"
+        show={!!designToDelete}
+        onClose={() => setDesignToDelete(null)}
+        title="Remove Inspiration"
+        size="sm"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setDesignToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={() => designToDelete && handleUnsave(designToDelete.id)}
+              disabled={designToDelete ? isUnsavingId === designToDelete.id : false}
+            >
+              Confirm Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-[#555555] dark:text-[#A9A9A9]">
+          Are you sure you want to remove <span className="font-semibold text-[#171717] dark:text-white">{designToDelete?.title}</span> from your saved vault? This action cannot be undone.
+        </p>
+      </Modal>
     </div>
   );
 };

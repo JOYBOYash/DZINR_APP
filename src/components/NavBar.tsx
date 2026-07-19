@@ -18,9 +18,9 @@ export const NavBar: React.FC<NavBarProps> = ({
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       transition={{ type: "spring", stiffness: 350, damping: 28 }}
-      className="md:hidden fixed bottom-0 left-0 right-0 w-full z-[150] rounded-t-2xl flex flex-col justify-start shadow-[0_-10px_30px_rgba(0,0,0,0.08)] border-t border-[#ECECEC] dark:border-white/10 bg-white/95 dark:bg-[#1E1E1E]/95 backdrop-blur-md"
+      className="md:hidden fixed bottom-0 left-0 right-0 w-full z-[150] rounded-t-2xl flex flex-col justify-start shadow-[0_-10px_30px_rgba(0,0,0,0.08)] border-t border-[#ECECEC] dark:border-white/10 bg-white dark:bg-[#121212]"
       style={{ 
-        height: "calc(58px + env(safe-area-inset-bottom, 0px))",
+        height: "58px",
         paddingBottom: "env(safe-area-inset-bottom, 0px)"
       }}
     >

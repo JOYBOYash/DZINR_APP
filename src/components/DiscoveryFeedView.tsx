@@ -1006,10 +1006,10 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
     <>
       <motion.div
         drag="y"
-        dragConstraints={{ top: 0, bottom: 150 }}
+        dragConstraints={{ top: 0, bottom: 200 }}
         dragElastic={0.2}
         onDragEnd={(_, info) => {
-          if (info.offset.y > 100) {
+          if (info.offset.y > 150) {
             fetchFeedBatch(true);
           }
         }}
@@ -1021,10 +1021,10 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
         <AnimatePresence mode="wait">
           <motion.div
             key={loading ? "loading" : "feed"}
-            initial={{ y: loading ? -20 : 0, opacity: 0 }}
+            initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: loading ? 20 : 0, opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            exit={{ y: 50, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="relative z-10 w-full flex flex-col items-center justify-center overflow-visible"
           >
             {syncingOffline && (
