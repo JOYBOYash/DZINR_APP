@@ -317,13 +317,13 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
         </div>
 
         {/* Tab Selector bar */}
-        <div className="border-b border-[#ECECEC] dark:border-white/10 shrink-0 w-full">
-          <div className="flex w-full mx-auto px-5 sm:px-8">
+        <div className="border-b border-[#ECECEC] dark:border-white/10 shrink-0 w-full overflow-x-hidden">
+          <div className="flex w-full mx-auto px-4 sm:px-8 overflow-x-hidden">
             <button
               id="tab-edit-basic"
               type="button"
               onClick={() => setActiveTab("basic")}
-              className={`flex-1 py-4 text-center text-xs font-space font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+              className={`flex-1 py-3 text-center text-[10px] sm:text-xs font-space font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                 activeTab === "basic"
                   ? "border-accent text-accent dark:border-white dark:text-white"
                   : "border-transparent text-[#888888] hover:text-[#555555]"
@@ -335,7 +335,7 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
               id="tab-edit-preferences"
               type="button"
               onClick={() => setActiveTab("preferences")}
-              className={`flex-1 py-4 text-center text-xs font-space font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+              className={`flex-1 py-3 text-center text-[10px] sm:text-xs font-space font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                 activeTab === "preferences"
                   ? "border-accent text-accent dark:border-white dark:text-white"
                   : "border-transparent text-[#888888] hover:text-[#555555]"
@@ -488,7 +488,7 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
                     type="url"
                     value={portfolioUrl}
                     onChange={(e) => setPortfolioUrl(e.target.value)}
-                    className="w-full h-11 pl-10 pr-4 text-xs font-mono border border-[#ECECEC] dark:border-white/10 rounded-[18px] outline-none bg-white dark:bg-surface-dark text-[#171717] dark:text-white focus:border-accent"
+                    className="w-full h-12 pl-10 pr-4 text-xs font-mono border border-[#ECECEC] dark:border-white/10 rounded-[18px] outline-none bg-white dark:bg-surface-dark text-[#171717] dark:text-white focus:border-accent shadow-sm"
                     placeholder="https://behance.net/joyboy or https://yourportfolio.com"
                   />
                 </div>

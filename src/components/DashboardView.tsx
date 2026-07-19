@@ -49,6 +49,7 @@ import { authService } from "../services/auth.service";
 import { auth } from "../services/firebase";
 import { getApiUrl } from "../utils/api";
 import { Modal } from "./Modal";
+import { Tooltip } from "./Tooltip";
 
 interface DashboardViewProps {
   user: UserProfile;
@@ -333,7 +334,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             id="dashboard-theme-toggle"
             variant="secondary"
             onClick={onToggleTheme}
-            className="w-auto py-2.5 px-4 h-auto text-xs"
+            className="w-auto py-2.5 px-4 h-auto text-xs md:hidden"
           >
             {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </Button>
@@ -352,7 +353,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Completeness bar helper */}
       {showCompletenessBox && (
-        <div className="p-5 rounded-[24px] bg-[#F7F7F8] dark:bg-[#5A0A20]/40 border border-[#ECECEC] dark:border-white/5 space-y-4 relative w-full max-w-4xl">
+        <div className="p-5 rounded-[24px] bg-[#F7F7F8] dark:bg-[#1E1E1E]/40 border border-[#ECECEC] dark:border-white/5 space-y-4 relative w-full max-w-4xl">
           <button
             onClick={() => setShowCompletenessBox(false)}
             className="absolute top-4 right-4 text-[#888888] dark:text-[#A9A9A9] hover:text-accent cursor-pointer"
@@ -419,76 +420,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {/* Stat 1: Total Reviews */}
-            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-accent/15 transition-all">
-              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Total Reviews</span>
-                <Award size={14} />
-              </div>
-              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                {metrics?.totalReviews || 0}
-              </p>
-              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
-                Total swipe interactions received
-              </p>
-            </div>
+              {/* Stat 1: Total Reviews */}
+              <Tooltip content="Total swipe interactions received" theme={theme} position="top">
+                <div className="p-4 rounded-r-[22px] rounded-l-[8px] bg-neutral-50/50 dark:bg-white/2 border-l-4 border-accent border border-divider-light dark:border-white/5 hover:bg-neutral-100/50 dark:hover:bg-white/5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Total Reviews</span>
+                    <Award size={14} className="text-accent shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics?.totalReviews || 0}
+                  </p>
+                </div>
+              </Tooltip>
 
-            {/* Stat 2: Right Swipes */}
-            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-green-500/15 transition-all">
-              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Right Swipes</span>
-                <Heart size={14} className="text-green-500" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                {metrics?.rightSwipes || 0}
-              </p>
-              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
-                Total positive "like" evaluations
-              </p>
-            </div>
+              {/* Stat 2: Right Swipes */}
+              <Tooltip content="Total positive 'like' evaluations" theme={theme} position="top">
+                <div className="p-4 rounded-r-[22px] rounded-l-[8px] bg-neutral-50/50 dark:bg-white/2 border-l-4 border-green-500 border border-divider-light dark:border-white/5 hover:bg-neutral-100/50 dark:hover:bg-white/5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Right Swipes</span>
+                    <Heart size={14} className="text-green-500 shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics?.rightSwipes || 0}
+                  </p>
+                </div>
+              </Tooltip>
 
-            {/* Stat 3: Saves */}
-            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-amber-500/15 transition-all">
-              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Total Saves</span>
-                <Bookmark size={14} className="text-amber-500" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                {metrics?.saves || 0}
-              </p>
-              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
-                Saved for direct inspiration
-              </p>
-            </div>
+              {/* Stat 3: Saves */}
+              <Tooltip content="Saved for direct inspiration" theme={theme} position="top">
+                <div className="p-4 rounded-r-[22px] rounded-l-[8px] bg-neutral-50/50 dark:bg-white/2 border-l-4 border-amber-500 border border-divider-light dark:border-white/5 hover:bg-neutral-100/50 dark:hover:bg-white/5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Total Saves</span>
+                    <Bookmark size={14} className="text-amber-500 shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics?.saves || 0}
+                  </p>
+                </div>
+              </Tooltip>
 
-            {/* Stat 4: Weighted Score */}
-            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-indigo-500/15 transition-all">
-              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Weighted Score</span>
-                <Sparkles size={14} className="text-indigo-500" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
-              </p>
-              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
-                Right & Save ratios combined
-              </p>
-            </div>
+              {/* Stat 4: Weighted Score */}
+              <Tooltip content="Right & Save ratios combined" theme={theme} position="top">
+                <div className="p-4 rounded-r-[22px] rounded-l-[8px] bg-neutral-50/50 dark:bg-white/2 border-l-4 border-indigo-500 border border-divider-light dark:border-white/5 hover:bg-neutral-100/50 dark:hover:bg-white/5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Weighted Score</span>
+                    <Sparkles size={14} className="text-indigo-500 shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
+                  </p>
+                </div>
+              </Tooltip>
 
-            {/* Stat 5: Review Velocity */}
-            <div className="p-5 rounded-[22px] bg-neutral-50 dark:bg-white/2 border border-divider-light dark:border-white/5 hover:border-[#ff2d51]/15 transition-all">
-              <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Review Velocity</span>
-                <TrendingUp size={14} className="text-[#ff2d51]" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                {metrics?.reviewVelocity || 0}
-              </p>
-              <p className="text-[10px] text-[#555555] dark:text-[#D7D7D7] font-mono mt-1 leading-snug">
-                Interactions received per upload
-              </p>
+              {/* Stat 5: Review Velocity */}
+              <Tooltip content="Interactions received per upload" theme={theme} position="top">
+                <div className="p-4 rounded-r-[22px] rounded-l-[8px] bg-neutral-50/50 dark:bg-white/2 border-l-4 border-[#ff2d51] border border-divider-light dark:border-white/5 hover:bg-neutral-100/50 dark:hover:bg-white/5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Review Velocity</span>
+                    <TrendingUp size={14} className="text-[#ff2d51] shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics?.reviewVelocity || 0}
+                  </p>
+                </div>
+              </Tooltip>
             </div>
-          </div>
 
           {/* Recharts Analytics Widget */}
           {(() => {
@@ -581,6 +577,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           axisLine={false}
                         />
                         <RechartsTooltip
+                          cursor={false}
                           content={({ active, payload, label }: any) => {
                             if (active && payload && payload.length) {
                               return (
@@ -607,7 +604,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           wrapperStyle={{ fontSize: 10, fontFamily: "monospace", textTransform: "uppercase" }}
                         />
                         <Bar dataKey="Likes" stackId="a" fill="#C90023" radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="Saves" stackId="a" fill="#EAB308" radius={[0, 0, 0, 0]} />
+                        <Bar dataKey="Saves" stackId="a" fill="#FF5E7E" radius={[0, 0, 0, 0]} />
                         <Bar dataKey="Skips" stackId="a" fill={theme === "dark" ? "#4b5563" : "#9ca3af"} radius={[4, 4, 0, 0]} />
                       </BarChart>
                     ) : (
@@ -745,32 +742,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* SECTION 3: Saved Inspirations Vault CTA */}
-      {onViewSavedVault && (
-        <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">
-          <div className="p-8 rounded-[32px] bg-neutral-50 dark:bg-white/1 border border-dashed border-[#ECECEC] dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-left flex-1">
-              <span className="text-[10px] font-mono uppercase text-accent tracking-widest font-bold">
-                Private Aesthetic Archive
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold font-space text-[#171717] dark:text-white tracking-tight mt-1">
-                Aesthetic Vault
-              </h2>
-              <p className="text-sm text-[#555555] dark:text-[#D7D7D7] mt-1.5 leading-relaxed max-w-2xl">
-                Access your curated collection of interface layouts, branding designs, and wireframes. Fully synchronized in real-time.
-              </p>
-            </div>
-            <Button
-              id="dashboard-saved-vault-cta"
-              onClick={onViewSavedVault}
-              className="py-3 px-6 text-sm font-semibold shrink-0 flex items-center justify-center gap-1.5"
-            >
-              <Bookmark size={15} />
-              <span>Open Saved Vault</span>
-            </Button>
-          </div>
-        </div>
-      )}
+
 
       {deferredPrompt && (
         <div className="mt-6 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-accent/20 bg-accent/5 rounded-[24px]">
@@ -865,7 +837,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   className={`w-full text-left p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all duration-150 cursor-pointer ${
                     deleteReasons.includes(opt.id)
                       ? theme === "dark"
-                        ? "border-white bg-white text-[#4A0517]"
+                        ? "border-white bg-white text-[#121212]"
                         : "border-accent bg-accent/5 text-accent"
                       : theme === "dark"
                         ? "border-white/10 hover:border-white/30 bg-white/2 text-[#D7D7D7]"
@@ -876,7 +848,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   {deleteReasons.includes(opt.id) && (
                     <CheckCircle2
                       size={14}
-                      className={theme === "dark" ? "text-[#4A0517]" : "text-accent"}
+                      className={theme === "dark" ? "text-[#121212]" : "text-accent"}
                     />
                   )}
                 </button>
@@ -897,7 +869,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className={`w-full text-xs rounded-xl px-4 py-3 border focus:outline-none ${
                   theme === "dark"
                     ? "bg-white/2 text-white border-white/10 focus:border-white"
-                    : "bg-[#fcf5e2]/40 text-[#171717] border-neutral-200 focus:border-accent"
+                    : "bg-neutral-100 text-[#171717] border-neutral-200 focus:border-accent"
                 }`}
               />
             </div>
@@ -915,7 +887,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className={`w-full text-xs rounded-xl px-4 py-3 border focus:outline-none resize-none ${
                 theme === "dark"
                   ? "bg-white/2 text-white border-white/10 focus:border-white"
-                  : "bg-[#fcf5e2]/40 text-[#171717] border-neutral-200 focus:border-accent"
+                  : "bg-neutral-100 text-[#171717] border-neutral-200 focus:border-accent"
               }`}
             />
           </div>
@@ -948,7 +920,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   className={`w-full max-w-sm text-xs rounded-lg px-3 py-2 border focus:outline-none ${
                     theme === "dark"
                       ? "bg-black/10 text-white border-white/10 focus:border-white"
-                      : "bg-[#fcf5e2]/20 text-[#171717] border-neutral-200 focus:border-accent"
+                      : "bg-neutral-100/50 text-[#171717] border-neutral-200 focus:border-accent"
                   }`}
                 />
               </div>

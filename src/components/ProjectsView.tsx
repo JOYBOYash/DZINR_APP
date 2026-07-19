@@ -13,6 +13,14 @@ import {
   Layers,
   X,
   Edit3,
+  Info,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Move,
+  ZoomIn,
 } from "lucide-react";
 import { UserProfile } from "../types";
 import { designService, Design } from "../services/design.service";
@@ -27,6 +35,7 @@ import { Badge } from "./Badge";
 import { ImportMethodCard } from "./CreatorWorkspace/ImportMethodCard";
 import { CategorySelector, TagSelector } from "./CreatorWorkspace/Selectors";
 import { DesignCarousel } from "./DesignCarousel";
+import { Tooltip } from "./Tooltip";
 
 const CATEGORIES = [
   "Carousels",
@@ -61,16 +70,375 @@ interface ProjectsViewProps {
   onBackToProfile?: () => void;
   onEditDraft?: (id: string) => void;
   onCreateNew?: () => void;
+  onLightboxToggle?: (isOpen: boolean, isZoomed?: boolean) => void;
 }
 
 type Tab = "drafts" | "published";
 
-export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditDraft, onCreateNew }) => {
+export const ProjectsView: React.FC<ProjectsViewProps> = ({ 
+  user, 
+  theme, 
+  onEditDraft, 
+  onCreateNew,
+  onLightboxToggle,
+}) => {
   const queryClient = useQueryClient();
   const { showToast } = useToastStore();
 
   const [activeTab, setActiveTab] = useState<Tab>("drafts");
   const [draftToDelete, setDraftToDelete] = useState<Design | null>(null);
+
+  // Lightbox and interactive preview states
+  const [lightboxDesign, setLightboxDesign] = useState<Design | null>(null);
+  const [activeSlideIdx, setActiveSlideIdx] = useState(0);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 768
+  );
+  const [zoomScale, setZoomScale] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const imageAreaRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+
+  // Automatically reset collapse state, zoom, and slide on mobile vs desktop when design changes
+  useEffect(() => {
+    if (lightboxDesign) {
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      setIsPanelCollapsed(isMobile);
+      setZoomScale(1);
+      setPanOffset({ x: 0, y: 0 });
+      setActiveSlideIdx(0);
+    }
+  }, [lightboxDesign]);
+
+  // Reset zoom and pan on slide change
+  useEffect(() => {
+    setZoomScale(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, [activeSlideIdx]);
+
+  // Sync lightbox open state to parent to hide global navigation
+  useEffect(() => {
+    const isZoomed = !!lightboxDesign && (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0);
+    onLightboxToggle?.(!!lightboxDesign, isZoomed);
+  }, [lightboxDesign, zoomScale, panOffset, onLightboxToggle]);
+
+  const [showViewerGuide, setShowViewerGuide] = useState(false);
+  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+
+  // Guide overlay timeout and auto-dismiss on user interaction
+  useEffect(() => {
+    if (lightboxDesign) {
+      setShowViewerGuide(true);
+
+      const dismissGuide = () => {
+        setShowViewerGuide(false);
+      };
+
+      // 3 second timer
+      const timer = setTimeout(dismissGuide, 3000);
+
+      // Listeners for click, scroll/wheel, or touch (registered after a slight delay)
+      const setupListenersTimer = setTimeout(() => {
+        window.addEventListener("mousedown", dismissGuide, { passive: true });
+        window.addEventListener("wheel", dismissGuide, { passive: true });
+        window.addEventListener("touchstart", dismissGuide, { passive: true });
+        window.addEventListener("touchmove", dismissGuide, { passive: true });
+      }, 300);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(setupListenersTimer);
+        window.removeEventListener("mousedown", dismissGuide);
+        window.removeEventListener("wheel", dismissGuide);
+        window.removeEventListener("touchstart", dismissGuide);
+        window.removeEventListener("touchmove", dismissGuide);
+      };
+    } else {
+      setShowViewerGuide(false);
+    }
+  }, [lightboxDesign]);
+
+  useEffect(() => {
+    if (lightboxDesign && (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0)) {
+      setIsPanelCollapsed(true);
+    }
+  }, [zoomScale, panOffset, lightboxDesign]);
+
+  // Helper to clamp pan offsets within exact image boundary bounds
+  const clampTranslate = (x: number, y: number, scaleVal: number) => {
+    const container = imageAreaRef.current;
+    const img = imageRef.current;
+    if (!container || !img || !img.naturalWidth || !img.naturalHeight) {
+      return { x: 0, y: 0 };
+    }
+    const containerRect = container.getBoundingClientRect();
+    const containerRatio = containerRect.width / containerRect.height;
+    const imageRatio = img.naturalWidth / img.naturalHeight;
+
+    let W_i = containerRect.width;
+    let H_i = containerRect.height;
+
+    if (imageRatio > containerRatio) {
+      W_i = containerRect.width;
+      H_i = containerRect.width / imageRatio;
+    } else {
+      H_i = containerRect.height;
+      W_i = containerRect.height * imageRatio;
+    }
+
+    const maxTranslateX = Math.max(0, (W_i * scaleVal - containerRect.width) / 2);
+    const maxTranslateY = Math.max(0, (H_i * scaleVal - containerRect.height) / 2);
+
+    return {
+      x: Math.min(Math.max(x, -maxTranslateX), maxTranslateX),
+      y: Math.min(Math.max(y, -maxTranslateY), maxTranslateY)
+    };
+  };
+
+  const stateRef = useRef({ zoomScale, panOffset });
+  useEffect(() => {
+    stateRef.current = { zoomScale, panOffset };
+  }, [zoomScale, panOffset]);
+
+  // WhatsApp-Style Unified Gestures for Projects Lightbox (Mouse Wheel zoom, left-click pan, double tap/click zoom, pinch-to-zoom)
+  useEffect(() => {
+    const element = imageAreaRef.current;
+    if (!element || !lightboxDesign) return;
+
+    const getDistance = (touches: TouchList) => {
+      if (touches.length < 2) return 0;
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const getTouchCenter = (touches: TouchList) => {
+      if (touches.length < 2) return { x: 0, y: 0 };
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2,
+      };
+    };
+
+    // --- MOUSE WHEEL ZOOM (Desktop) ---
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const currentScale = stateRef.current.zoomScale;
+      const currentPan = stateRef.current.panOffset;
+      const zoomFactor = 1.15;
+      const direction = e.deltaY < 0 ? 1 : -1;
+      
+      const nextScale = direction > 0 ? currentScale * zoomFactor : currentScale / zoomFactor;
+      const clampedScale = Math.min(Math.max(nextScale, 1), 4);
+      
+      let nextPan = { x: 0, y: 0 };
+      if (clampedScale > 1) {
+        const rect = element.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left - rect.width / 2;
+        const mouseY = e.clientY - rect.top - rect.height / 2;
+        
+        const ratio = clampedScale / currentScale;
+        const targetX = mouseX - (mouseX - currentPan.x) * ratio;
+        const targetY = mouseY - (mouseY - currentPan.y) * ratio;
+        
+        nextPan = clampTranslate(targetX, targetY, clampedScale);
+      }
+      
+      setZoomScale(clampedScale);
+      setPanOffset(nextPan);
+      element.style.cursor = clampedScale > 1 ? "grab" : "zoom-in";
+    };
+
+    // --- DESKTOP CLICK-AND-DRAG PAN (Left mouse button) ---
+    let isMouseDragging = false;
+    let mouseDragStart = { x: 0, y: 0 };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return; // Left click only
+      const currentScale = stateRef.current.zoomScale;
+      const currentPan = stateRef.current.panOffset;
+      if (currentScale <= 1) return;
+      e.preventDefault();
+      isMouseDragging = true;
+      mouseDragStart = {
+        x: e.clientX - currentPan.x,
+        y: e.clientY - currentPan.y,
+      };
+      element.style.cursor = "grabbing";
+      
+      window.addEventListener("mousemove", handleGlobalMouseMove);
+      window.addEventListener("mouseup", handleGlobalMouseUp);
+    };
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isMouseDragging) return;
+      const currentScale = stateRef.current.zoomScale;
+      const newX = e.clientX - mouseDragStart.x;
+      const newY = e.clientY - mouseDragStart.y;
+      const clampedPan = clampTranslate(newX, newY, currentScale);
+      setPanOffset(clampedPan);
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (isMouseDragging) {
+        isMouseDragging = false;
+        const currentScale = stateRef.current.zoomScale;
+        element.style.cursor = currentScale > 1 ? "grab" : "zoom-in";
+      }
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+
+    // --- DOUBLE CLICK ZOOM (Desktop) ---
+    const handleDoubleClick = (e: MouseEvent) => {
+      e.preventDefault();
+      const currentScale = stateRef.current.zoomScale;
+      if (currentScale > 1) {
+        setZoomScale(1);
+        setPanOffset({ x: 0, y: 0 });
+        element.style.cursor = "zoom-in";
+      } else {
+        const rect = element.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left - rect.width / 2;
+        const mouseY = e.clientY - rect.top - rect.height / 2;
+        
+        const targetScale = 2.5;
+        const targetX = mouseX - mouseX * targetScale;
+        const targetY = mouseY - mouseY * targetScale;
+        const clampedPan = clampTranslate(targetX, targetY, targetScale);
+        
+        setZoomScale(targetScale);
+        setPanOffset(clampedPan);
+        element.style.cursor = "grab";
+      }
+    };
+
+    // --- MOBILE TOUCH GESTURES (Double Tap, Pinch, and Single Touch Drag) ---
+    let initialDistance = 0;
+    let initialScale = 1;
+    let initialPan = { x: 0, y: 0 };
+    let initialCenter = { x: 0, y: 0 };
+    let isPinching = false;
+    let isTouchDragging = false;
+    let touchDragStart = { x: 0, y: 0 };
+    let lastTapTime = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const currentScale = stateRef.current.zoomScale;
+      const currentPan = stateRef.current.panOffset;
+
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        isPinching = true;
+        isTouchDragging = false;
+        initialDistance = getDistance(e.touches);
+        initialScale = currentScale;
+        initialPan = { ...currentPan };
+        initialCenter = getTouchCenter(e.touches);
+      } else if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          e.preventDefault();
+          if (currentScale > 1) {
+            setZoomScale(1);
+            setPanOffset({ x: 0, y: 0 });
+          } else {
+            const rect = element.getBoundingClientRect();
+            const touch = e.touches[0];
+            const tapX = touch.clientX - rect.left - rect.width / 2;
+            const tapY = touch.clientY - rect.top - rect.height / 2;
+            
+            const targetScale = 2.5;
+            const targetX = tapX - tapX * targetScale;
+            const targetY = tapY - tapY * targetScale;
+            const clampedPan = clampTranslate(targetX, targetY, targetScale);
+            
+            setZoomScale(targetScale);
+            setPanOffset(clampedPan);
+          }
+        } else {
+          if (currentScale > 1) {
+            isTouchDragging = true;
+            touchDragStart = {
+              x: e.touches[0].clientX - currentPan.x,
+              y: e.touches[0].clientY - currentPan.y,
+            };
+          }
+        }
+        lastTapTime = now;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const currentScale = stateRef.current.zoomScale;
+
+      if (isPinching && e.touches.length === 2) {
+        e.preventDefault();
+        const currentDistance = getDistance(e.touches);
+        const currentCenter = getTouchCenter(e.touches);
+        if (initialDistance > 0 && currentDistance > 0) {
+          const ratio = currentDistance / initialDistance;
+          const nextScale = Math.min(Math.max(initialScale * ratio, 1), 4);
+          
+          const rect = element.getBoundingClientRect();
+          const initialCenterX = initialCenter.x - rect.left - rect.width / 2;
+          const initialCenterY = initialCenter.y - rect.top - rect.height / 2;
+          const currentCenterX = currentCenter.x - rect.left - rect.width / 2;
+          const currentCenterY = currentCenter.y - rect.top - rect.height / 2;
+          
+          const scaleRatio = nextScale / initialScale;
+          const targetPanX = currentCenterX - (initialCenterX - initialPan.x) * scaleRatio;
+          const targetPanY = currentCenterY - (initialCenterY - initialPan.y) * scaleRatio;
+          
+          const clampedPan = clampTranslate(targetPanX, targetPanY, nextScale);
+          
+          setZoomScale(nextScale);
+          setPanOffset(clampedPan);
+        }
+      } else if (isTouchDragging && e.touches.length === 1) {
+        e.preventDefault();
+        const newX = e.touches[0].clientX - touchDragStart.x;
+        const newY = e.touches[0].clientY - touchDragStart.y;
+        const clampedPan = clampTranslate(newX, newY, currentScale);
+        setPanOffset(clampedPan);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      const currentScale = stateRef.current.zoomScale;
+      if (isPinching) {
+        isPinching = false;
+        if (currentScale < 1.05) {
+          setZoomScale(1);
+          setPanOffset({ x: 0, y: 0 });
+        }
+      }
+      isTouchDragging = false;
+    };
+
+    const currentScale = stateRef.current.zoomScale;
+    element.style.cursor = currentScale > 1 ? "grab" : "zoom-in";
+
+    element.addEventListener("touchstart", handleTouchStart, { passive: false });
+    element.addEventListener("touchmove", handleTouchMove, { passive: false });
+    element.addEventListener("touchend", handleTouchEnd);
+    element.addEventListener("touchcancel", handleTouchEnd);
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    element.addEventListener("mousedown", handleMouseDown);
+    element.addEventListener("dblclick", handleDoubleClick);
+
+    return () => {
+      element.removeEventListener("touchstart", handleTouchStart);
+      element.removeEventListener("touchmove", handleTouchMove);
+      element.removeEventListener("touchend", handleTouchEnd);
+      element.removeEventListener("touchcancel", handleTouchEnd);
+      element.removeEventListener("wheel", handleWheel);
+      element.removeEventListener("mousedown", handleMouseDown);
+      element.removeEventListener("dblclick", handleDoubleClick);
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [lightboxDesign, activeSlideIdx]);
 
   const {
     drafts,
@@ -231,35 +599,37 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="sticky top-20 z-30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-[18px] bg-white dark:bg-[#5A0A20] border border-accent/20 shadow-sm dark:shadow-none"
+                className="fixed top-0 left-0 right-0 md:top-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[90%] md:max-w-xl md:rounded-[22px] md:border md:border-accent/30 rounded-none border-t-0 border-x-0 border-b border-accent/20 md:bg-white/95 md:dark:bg-[#1E1E1E]/95 bg-white dark:bg-[#1E1E1E] backdrop-blur-md shadow-lg md:shadow-2xl z-[150] flex flex-row items-center justify-between gap-4 p-4 m-0 animate-fade-in"
               >
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-space font-bold uppercase tracking-wider text-[#171717] dark:text-white">
-                    {selectedDrafts.size} selected for loop
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <span className="text-[11px] sm:text-xs font-space font-bold uppercase tracking-wider text-[#171717] dark:text-white shrink-0">
+                    {selectedDrafts.size} selected
                   </span>
                   <button
                     onClick={clearSelection}
-                    className="text-xs font-mono text-[#888888] hover:text-accent underline cursor-pointer"
+                    className="text-[10px] sm:text-xs font-mono text-[#888888] hover:text-accent underline cursor-pointer shrink-0"
                   >
-                    Clear Selected
+                    Clear
                   </button>
                 </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                   <Button
                     onClick={() => setShowMultiDeleteConfirm("draft")}
                     variant="secondary"
                     loading={deleteSelectedMutation.isPending}
-                    className="flex-1 sm:flex-none py-2 px-4 sm:px-6 text-xs h-auto !border-red-500 !text-red-500 hover:!bg-red-500/10"
+                    className="py-1.5 sm:py-2 px-3 sm:px-5 text-[10px] sm:text-xs h-auto !border-red-500 !text-red-500 hover:!bg-red-500/10"
                   >
-                    Delete Selected
+                    <span className="sm:hidden">Delete</span>
+                    <span className="hidden sm:inline">Delete Selected</span>
                   </Button>
                   <Button
                     loading={publishMutation.isPending}
                     onClick={() => publishMutation.mutate(Array.from(selectedDrafts))}
                     variant="primary"
-                    className="flex-1 sm:flex-none py-2 px-4 sm:px-6 text-xs h-auto"
+                    className="py-1.5 sm:py-2 px-3 sm:px-5 text-[10px] sm:text-xs h-auto"
                   >
-                    Publish for Feedback
+                    <span className="sm:hidden">Publish</span>
+                    <span className="hidden sm:inline">Publish for Feedback</span>
                   </Button>
                 </div>
               </motion.div>
@@ -283,7 +653,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
                     {selectedDrafts.has(draft.id) && <CheckCircle2 size={14} className="stroke-[3]" />}
                   </button>
 
-                  <div className="relative w-full aspect-[16/10] bg-neutral-100 dark:bg-neutral-900 overflow-hidden">
+                  <div 
+                    onClick={() => setLightboxDesign(draft)}
+                    className="relative w-full aspect-[16/10] bg-neutral-100 dark:bg-neutral-900 overflow-hidden cursor-pointer"
+                  >
                     <DesignCarousel
                       imageUrls={draft.imageUrls}
                       fallbackUrl={draft.imageUrl}
@@ -292,18 +665,36 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
                     />
                     
                     {/* Hover triggers - always visible as an overlay block on mobile/touch screens, hover-only on desktop */}
-                    <div className="absolute inset-0 bg-black/30 sm:bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 flex items-end justify-start p-3 sm:p-4 z-10 pointer-events-none">
-                      <button
-                        onClick={() => onEditDraft?.(draft.id)}
-                        className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center gap-1.5 hover:text-accent cursor-pointer bg-black/60 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-full border border-white/10 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none"
-                      >
-                        <Edit3 size={12} className="sm:w-[13px] sm:h-[13px]" /> Edit Layout
-                      </button>
+                    <div className="absolute inset-0 bg-black/40 sm:bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3 sm:p-4 z-10 pointer-events-none">
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditDraft?.(draft.id);
+                          }}
+                          className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center justify-center gap-1.5 hover:text-accent cursor-pointer bg-black/70 sm:bg-transparent px-2.5 py-2 sm:p-0 rounded-xl sm:rounded-none border border-white/15 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none transition-all"
+                        >
+                          <Edit3 size={11} className="sm:w-[13px] sm:h-[13px]" /> Edit Layout
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLightboxDesign(draft);
+                          }}
+                          className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center justify-center gap-1.5 hover:text-accent cursor-pointer bg-black/70 sm:bg-transparent px-2.5 py-2 sm:p-0 rounded-xl sm:rounded-none border border-white/15 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none transition-all"
+                        >
+                          Preview Draft
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="p-4 space-y-2">
-                    <h4 className="font-space font-semibold text-sm text-[#171717] dark:text-white truncate">
+                    <h4 
+                      onClick={() => setLightboxDesign(draft)}
+                      className="font-space font-semibold text-sm text-[#171717] dark:text-white truncate cursor-pointer hover:text-accent transition-colors"
+                    >
                       {draft.title || "Untitled Draft Mockup"}
                     </h4>
                     <p className="text-xs text-[#555555] dark:text-[#D7D7D7] truncate">
@@ -357,27 +748,28 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="sticky top-20 z-30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-[18px] bg-white dark:bg-[#5A0A20] border border-accent/20 shadow-sm dark:shadow-none"
+              className="fixed top-0 left-0 right-0 md:top-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[90%] md:max-w-xl md:rounded-[22px] md:border md:border-accent/30 rounded-none border-t-0 border-x-0 border-b border-accent/20 md:bg-white/95 md:dark:bg-[#1E1E1E]/95 bg-white dark:bg-[#1E1E1E] backdrop-blur-md shadow-lg md:shadow-2xl z-[150] flex flex-row items-center justify-between gap-4 p-4 m-0 animate-fade-in"
             >
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-space font-bold uppercase tracking-wider text-[#171717] dark:text-white">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <span className="text-[11px] sm:text-xs font-space font-bold uppercase tracking-wider text-[#171717] dark:text-white shrink-0">
                   {selectedPublished.size} selected
                 </span>
                 <button
                   onClick={clearPublishedSelection}
-                  className="text-xs font-mono text-[#888888] hover:text-accent underline cursor-pointer"
+                  className="text-[10px] sm:text-xs font-mono text-[#888888] hover:text-accent underline cursor-pointer shrink-0"
                 >
-                  Clear Selected
+                  Clear
                 </button>
               </div>
-              <div className="flex items-center w-full sm:w-auto">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 <Button
                   onClick={() => setShowMultiDeleteConfirm("published")}
                   variant="secondary"
                   loading={deleteSelectedMutation.isPending}
-                  className="w-full sm:w-auto py-2 px-4 sm:px-6 text-xs h-auto !border-red-500 !text-red-500 hover:!bg-red-500/10"
+                  className="py-1.5 sm:py-2 px-3 sm:px-5 text-[10px] sm:text-xs h-auto !border-red-500 !text-red-500 hover:!bg-red-500/10"
                 >
-                  Delete Selected
+                  <span className="sm:hidden">Delete</span>
+                  <span className="hidden sm:inline">Delete Selected</span>
                 </Button>
               </div>
             </motion.div>
@@ -389,7 +781,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
                 key={design.id}
                 className={`overflow-hidden hover:border-accent ${selectedPublished.has(design.id) ? 'border-accent ring-1 ring-accent' : ''}`}
               >
-                <div className="relative aspect-[16/10] w-full shrink-0 group">
+                <div 
+                  onClick={() => setLightboxDesign(design)}
+                  className="relative aspect-[16/10] w-full shrink-0 group cursor-pointer"
+                >
                   <DesignCarousel
                     imageUrls={design.imageUrls}
                     fallbackUrl={design.imageUrl}
@@ -397,6 +792,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
                     className="w-full h-full"
                   />
                   
+                  {/* Hover triggers - always visible as an overlay block on mobile/touch screens, hover-only on desktop */}
+                  <div className="absolute inset-0 bg-black/30 sm:bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center p-4 z-10 pointer-events-none">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLightboxDesign(design);
+                      }}
+                      className="text-[10px] sm:text-xs font-space font-bold uppercase text-white bg-black/60 sm:bg-accent px-3 py-1.5 rounded-full border border-white/10 sm:border-transparent pointer-events-auto shadow-md cursor-pointer transition-colors hover:scale-105"
+                    >
+                      Preview Design
+                    </button>
+                  </div>
+
                   {/* Select Checkbox */}
                   <div className="absolute top-4 left-4 z-20">
                     <button
@@ -418,7 +827,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
                   </div>
                 </div>
                 <div className="p-4 space-y-2 text-left">
-                  <h4 className="font-space font-semibold text-sm text-[#171717] dark:text-white truncate">
+                  <h4 
+                    onClick={() => setLightboxDesign(design)}
+                    className="font-space font-semibold text-sm text-[#171717] dark:text-white truncate cursor-pointer hover:text-accent transition-colors"
+                  >
                     {design.title}
                   </h4>
                   <div className="flex flex-wrap gap-1.5 pt-1">
@@ -471,10 +883,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 300 }}
+              dragElastic={{ top: 0.1, bottom: 0.8 }}
+              onDragEnd={(event, info) => {
+                if (info.offset.y > 80) {
+                  setDraftToDelete(null);
+                }
+              }}
               initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: 10 }}
-              className="relative w-full max-w-md p-6 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-lg dark:shadow-none text-left z-10"
+              className="relative w-full max-w-md p-6 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-lg dark:shadow-none text-left z-10 cursor-grab active:cursor-grabbing select-none"
             >
               <h3 className="text-base font-bold font-space text-[#171717] dark:text-white uppercase tracking-wider mb-2">
                 Remove Design Frame?
@@ -523,10 +943,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 300 }}
+              dragElastic={{ top: 0.1, bottom: 0.8 }}
+              onDragEnd={(event, info) => {
+                if (info.offset.y > 80) {
+                  setShowMultiDeleteConfirm(null);
+                }
+              }}
               initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: 10 }}
-              className="relative w-full max-w-md p-6 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-lg dark:shadow-none text-left z-10"
+              className="relative w-full max-w-md p-6 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-lg dark:shadow-none text-left z-10 cursor-grab active:cursor-grabbing select-none"
             >
               <h3 className="text-base font-bold font-space text-[#171717] dark:text-white uppercase tracking-wider mb-2">
                 Remove {showMultiDeleteConfirm === 'draft' ? selectedDrafts.size : selectedPublished.size} Designs?
@@ -558,6 +986,467 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, theme, onEditD
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Dynamic Projects Preview Lightbox */}
+      <AnimatePresence>
+        {lightboxDesign && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 backdrop-blur-xl z-[130] flex flex-col md:flex-row overflow-hidden transition-all duration-300 ${
+              theme === "dark" 
+                ? "bg-[#121212]/98 text-white" 
+                : "bg-[#FFFFFF]/98 text-[#171717]"
+            }`}
+            onClick={() => setLightboxDesign(null)}
+          >
+            {/* Top Hover Sensor Bar */}
+            <div 
+              onMouseEnter={() => setIsHeaderHovered(true)}
+              onMouseLeave={() => setIsHeaderHovered(false)}
+              className="absolute top-0 left-0 right-0 h-20 z-20 pointer-events-auto"
+            />
+
+            {/* Top Header Controls */}
+            <div 
+              className={`absolute top-4 left-4 right-4 ${!isPanelCollapsed ? "md:right-[396px]" : "md:right-4"} flex items-center justify-between z-30 pointer-events-none transition-all duration-300 ${
+                (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0) && !isHeaderHovered
+                  ? "opacity-0 pointer-events-none"
+                  : "opacity-100"
+              }`} 
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Draft vs Published Identifier Info */}
+              <div className="pointer-events-auto">
+                <div 
+                  className={`flex items-center gap-2 p-1.5 pl-3 pr-4 rounded-full border shadow-md backdrop-blur-md transition-colors ${
+                    theme === "dark"
+                      ? "bg-[#1E1E1E]/90 border-white/10 text-white"
+                      : "bg-white/95 border-neutral-200 text-[#171717]"
+                  }`}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full ${lightboxDesign.status === 'draft' ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
+                  <span className="text-[10px] font-space font-bold uppercase tracking-widest">
+                    {lightboxDesign.status === 'draft' ? 'Draft Layout' : 'Published'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Controls on Right */}
+              <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+                {/* Edit Layout Button - Visible ONLY for drafts */}
+                {lightboxDesign.status === "draft" && (
+                  <Tooltip content="Edit Layout Details" theme={theme} position="bottom">
+                    <button
+                      onClick={() => {
+                        onEditDraft?.(lightboxDesign.id);
+                        setLightboxDesign(null);
+                      }}
+                      className="p-2.5 sm:px-4 sm:py-2.5 rounded-full bg-accent hover:bg-accent-hover text-white text-xs font-sans font-bold tracking-tight flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors"
+                    >
+                      <Edit3 size={13} className="shrink-0" />
+                      <span className="hidden sm:inline">Edit Layout</span>
+                    </button>
+                  </Tooltip>
+                )}
+
+                {/* Collapse/Expand Side Panel Toggle */}
+                <Tooltip content={isPanelCollapsed ? "Show Details" : "Hide Details"} theme={theme} position="bottom">
+                  <button
+                    onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+                    className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                      theme === "dark"
+                        ? "bg-[#1E1E1E]/80 hover:bg-[#2B2B2B] text-white border-[#2B2B2B]"
+                        : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
+                    }`}
+                  >
+                    <Info size={18} className="stroke-[2.5]" />
+                  </button>
+                </Tooltip>
+
+                {/* Close Button */}
+                <Tooltip content="Close Viewer" theme={theme} position="bottom">
+                  <button
+                    onClick={() => setLightboxDesign(null)}
+                    className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                      theme === "dark"
+                        ? "bg-[#1E1E1E]/80 hover:bg-[#2B2B2B] text-white border-[#2B2B2B]"
+                        : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
+                    }`}
+                  >
+                    <X size={18} className="stroke-[2.5]" />
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
+
+            {/* Scroll/Pan Viewer Guide Popup */}
+            <AnimatePresence>
+              {showViewerGuide && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2.5 sm:gap-4 px-5 py-3 rounded-2xl bg-neutral-900/90 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10"
+                >
+                  <div className="flex items-center gap-2">
+                    <ZoomIn size={16} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll to Zoom</span>
+                  </div>
+                  <div className="hidden sm:block h-4 w-px bg-white/20 dark:bg-neutral-300" />
+                  <div className="flex items-center gap-2">
+                    <Move size={16} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan to Move</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Left Content Area - Zoom, Pan, Carousel Controls */}
+            {(() => {
+              const currentUrls = (lightboxDesign.imageUrls && lightboxDesign.imageUrls.length > 0)
+                ? lightboxDesign.imageUrls
+                : [lightboxDesign.imageUrl].filter(Boolean);
+              const activeUrl = currentUrls[activeSlideIdx] || lightboxDesign.imageUrl;
+
+              return (
+                <div 
+                  ref={imageAreaRef}
+                  className={`flex-1 relative flex items-center justify-center select-none h-full md:h-full overflow-hidden transition-all duration-300 ${
+                    !isPanelCollapsed 
+                      ? "p-4 pb-[calc(324px+env(safe-area-inset-bottom,0px))] md:p-0" 
+                      : "p-4 pb-[calc(74px+env(safe-area-inset-bottom,0px))] md:p-0"
+                  }`}
+                  onClick={() => setLightboxDesign(null)}
+                >
+                  {/* Blurred Ambient Glow Back-reflection */}
+                  {activeUrl && (
+                    <div 
+                      className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-35 blur-[120px] scale-110 transition-all duration-500"
+                      style={{ zIndex: 0 }}
+                    >
+                      <img 
+                        src={activeUrl} 
+                        alt=""
+                        className="w-full h-full object-cover select-none"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  )}
+
+                  {/* Gradient Radial Cover */}
+                  <div 
+                    className={`absolute inset-0 pointer-events-none z-0 ${
+                      theme === "dark" 
+                        ? "bg-gradient-to-t from-[#121212]/85 via-transparent to-[#121212]/85" 
+                        : "bg-gradient-to-t from-white/70 via-transparent to-white/70"
+                    }`}
+                  />
+
+                  {/* Dark mask on zoom */}
+                  <div 
+                    className={`absolute inset-0 pointer-events-none z-0 transition-opacity duration-300 ${
+                      zoomScale > 1 
+                        ? theme === "dark" 
+                          ? "opacity-60 bg-black" 
+                          : "opacity-45 bg-black" 
+                        : "opacity-0 bg-transparent"
+                    }`}
+                  />
+
+                  {/* Active Slide Image Wrapper */}
+                  <motion.div
+                    initial={{ scale: 0.94, opacity: 0, y: 15 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.94, opacity: 0, y: 15 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.05 }}
+                    className="relative z-10 w-full h-full flex items-center justify-center overflow-visible"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Carousel Nav Button Left */}
+                    {currentUrls.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlideIdx((prev) => (prev > 0 ? prev - 1 : currentUrls.length - 1));
+                        }}
+                        className={`absolute left-4 p-3 rounded-full border shadow-md backdrop-blur-md z-30 transition-all cursor-pointer ${
+                          theme === "dark"
+                            ? "bg-[#1E1E1E]/80 hover:bg-[#2B2B2B] text-white border-[#2B2B2B]"
+                            : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
+                        }`}
+                      >
+                        <ChevronLeft size={20} strokeWidth={2.5} />
+                      </button>
+                    )}
+
+                    {/* Carousel Nav Button Right */}
+                    {currentUrls.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSlideIdx((prev) => (prev < currentUrls.length - 1 ? prev + 1 : 0));
+                        }}
+                        className={`absolute right-4 p-3 rounded-full border shadow-md backdrop-blur-md z-30 transition-all cursor-pointer ${
+                          theme === "dark"
+                            ? "bg-[#1E1E1E]/80 hover:bg-[#2B2B2B] text-white border-[#2B2B2B]"
+                            : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
+                        }`}
+                      >
+                        <ChevronRight size={20} strokeWidth={2.5} />
+                      </button>
+                    )}
+
+                    {/* Static Slide Numbers Indicator */}
+                    {currentUrls.length > 1 && (
+                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-md bg-black/50 text-white/95 shadow-sm border border-white/10 select-none">
+                        {activeSlideIdx + 1} of {currentUrls.length} Slides
+                      </div>
+                    )}
+
+                    <motion.div
+                      className="relative w-full h-full flex items-center justify-center"
+                      animate={{ 
+                        x: panOffset.x, 
+                        y: panOffset.y, 
+                        scale: zoomScale 
+                      }}
+                      transition={{ type: "spring", damping: 35, stiffness: 280 }}
+                    >
+                      {activeUrl ? (
+                        <img
+                          ref={imageRef}
+                          src={activeUrl}
+                          alt={lightboxDesign.title}
+                          className="w-full h-full max-w-full max-h-full object-contain select-none"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="text-center py-12">
+                          <ImageIcon size={48} className="mx-auto text-neutral-400 mb-2" />
+                          <p className="text-xs text-neutral-500 font-mono">No mockup image loaded</p>
+                        </div>
+                      )}
+                    </motion.div>
+                  </motion.div>
+                </div>
+              );
+            })()}
+
+            {/* Side Panel (Desktop) */}
+            <motion.div
+              animate={{ 
+                width: isPanelCollapsed ? 0 : 380,
+                opacity: isPanelCollapsed ? 0 : 1
+              }}
+              transition={{ type: "spring", damping: 30, stiffness: 250 }}
+              className={`hidden md:flex relative h-full border-l flex-col justify-between shrink-0 z-10 overflow-hidden ${
+                theme === "dark" 
+                  ? "bg-[#1E1E1E] border-divider-dark text-white" 
+                  : "bg-white border-neutral-200 text-[#171717]"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Side Panel Header */}
+              <div className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 ${
+                theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+              }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 ${
+                    theme === "dark"
+                      ? "bg-white/10 border border-white/20 text-white"
+                      : "bg-accent/20 border border-accent/30 text-accent"
+                  }`}>
+                    {user.name ? user.name.slice(0, 1).toUpperCase() : "M"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold font-space truncate ${
+                      theme === "dark" ? "text-white" : "text-[#171717]"
+                    }`}>
+                      @{user.username || "me"}
+                    </p>
+                    <span className={`text-[9px] font-mono block ${
+                      theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                    }`}>
+                      Author Workspace
+                    </span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => setIsPanelCollapsed(true)}
+                  className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
+                    theme === "dark"
+                      ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
+                      : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
+                  }`}
+                  title="Collapse panel"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Side Panel Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 text-left">
+                <div>
+                  <h3 className={`text-xl font-bold font-space tracking-tight leading-snug ${
+                    theme === "dark" ? "text-white" : "text-[#171717]"
+                  }`}>
+                    {lightboxDesign.title || "Untitled Project Layout"}
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mt-3.5">
+                    {lightboxDesign.category && (
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                        theme === "dark"
+                          ? "bg-white/10 text-white border-white/25"
+                          : "bg-accent/10 text-accent border-accent/20"
+                      }`}>
+                        {lightboxDesign.category}
+                      </span>
+                    )}
+                    {lightboxDesign.format && (
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                        theme === "dark"
+                          ? "bg-white/5 text-neutral-300 border-white/10"
+                          : "bg-neutral-100 text-neutral-700 border-neutral-200"
+                      }`}>
+                        {lightboxDesign.format}
+                      </span>
+                    )}
+                    {lightboxDesign.styles && lightboxDesign.styles.map((style, idx) => (
+                      <span key={idx} className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                        theme === "dark"
+                          ? "bg-white/5 text-neutral-300 border-white/10"
+                          : "bg-neutral-100 text-neutral-700 border-[#ECECEC]"
+                      }`}>
+                        {style}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`pt-5 border-t ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}>
+                  <h4 className={`text-[10px] font-mono uppercase tracking-wider mb-2 ${
+                    theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                  }`}>
+                    Details
+                  </h4>
+                  <div className="space-y-2 text-xs font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-[#888888]">STATUS:</span>
+                      <span className={`font-bold capitalize ${lightboxDesign.status === 'draft' ? 'text-amber-500' : 'text-green-500'}`}>
+                        {lightboxDesign.status}
+                      </span>
+                    </div>
+                    {lightboxDesign.publishedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-[#888888]">PUBLISHED:</span>
+                        <span>{new Date(lightboxDesign.publishedAt).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-[#888888]">CREATED:</span>
+                      <span>{new Date(lightboxDesign.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {lightboxDesign.description && (
+                  <div className={`pt-5 border-t ${
+                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                  }`}>
+                    <h4 className={`text-[10px] font-mono uppercase tracking-wider mb-2.5 ${
+                      theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                    }`}>
+                      Description
+                    </h4>
+                    <p className={`text-xs leading-relaxed ${
+                      theme === "dark" ? "text-neutral-300" : "text-neutral-600"
+                    }`}>
+                      {lightboxDesign.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Mobile Bottom Panel */}
+            <motion.div
+              animate={{ 
+                height: isPanelCollapsed ? 0 : "250px",
+                opacity: isPanelCollapsed ? 0 : 1
+              }}
+              transition={{ type: "spring", damping: 30, stiffness: 250 }}
+              className={`flex md:hidden absolute inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom,0px))] flex-col z-40 overflow-hidden rounded-t-3xl transition-colors duration-300 ${
+                theme === "dark" 
+                  ? "bg-[#1E1E1E] border-t border-divider-dark text-white shadow-[0_-15px_40px_rgba(0,0,0,0.5)]" 
+                  : "bg-white border-t border-neutral-200 text-[#171717] shadow-[0_-15px_40px_rgba(0,0,0,0.1)]"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 ${
+                theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+              }`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 ${
+                    theme === "dark"
+                      ? "bg-white/10 border border-white/20 text-white"
+                      : "bg-accent/20 border border-accent/30 text-accent"
+                  }`}>
+                    {user.name ? user.name.slice(0, 1).toUpperCase() : "M"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold font-space truncate ${
+                      theme === "dark" ? "text-white" : "text-[#171717]"
+                    }`}>
+                      @{user.username || "me"}
+                    </p>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => setIsPanelCollapsed(true)}
+                  className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
+                    theme === "dark"
+                      ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
+                      : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
+                  }`}
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 p-4 overflow-y-auto space-y-4 text-left">
+                <div>
+                  <h3 className={`text-base font-bold font-space tracking-tight leading-snug ${
+                    theme === "dark" ? "text-white" : "text-[#171717]"
+                  }`}>
+                    {lightboxDesign.title || "Untitled Project Layout"}
+                  </h3>
+                </div>
+
+                {lightboxDesign.description && (
+                  <div className={`pt-3 border-t ${
+                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      theme === "dark" ? "text-neutral-300" : "text-neutral-600"
+                    }`}>
+                      {lightboxDesign.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

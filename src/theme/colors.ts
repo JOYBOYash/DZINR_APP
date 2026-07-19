@@ -5,9 +5,9 @@ export const colors = {
     hover: "#BD0F3B",
   },
   dark: {
-    canvas: "#4A0517",
-    surface: "#5A0A20",
-    elevated: "#68102A",
+    canvas: "#121212",
+    surface: "#1E1E1E",
+    elevated: "#2B2B2B",
     primaryText: "#FFFFFF",
     secondaryText: "#D7D7D7",
     mutedText: "#A9A9A9",

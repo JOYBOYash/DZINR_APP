@@ -29,6 +29,7 @@ interface OnboardingFlowProps {
   deferredPrompt?: any;
   isPwaInstalled?: boolean;
   onInstallPwa?: () => void;
+  firebaseUser?: any;
 }
 
 import { INSPIRATION_STYLE_IMAGES } from '../constants/images';
@@ -267,7 +268,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onToggleTheme,
   deferredPrompt,
   isPwaInstalled = false,
-  onInstallPwa
+  onInstallPwa,
+  firebaseUser,
 }) => {
   const isIOS = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
   const isMobile = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -451,7 +453,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           </div>
 
           {/* TRANSITION OVERLAY GRADIENT - HORIZONTAL TO MATCH BODY */}
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-[#4A0517] dark:via-[#4A0517]/80 to-transparent z-10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-[#121212] dark:via-[#121212]/80 to-transparent z-10" />
         </div>
 
         {/* RESPONSIVE SCROLL SPACER TO PUSH CONTENT DOWN */}
@@ -935,8 +937,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           </div>
 
           {/* MASTER ULTRA-LUXE GRADIENT MASKS */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#fcf5e2] via-[#fcf5e2]/20 to-[#fcf5e2] dark:from-[#4A0517] dark:via-[#4A0517]/20 dark:to-[#4A0517] z-10 pointer-events-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,#fcf5e2_100%)] dark:bg-[radial-gradient(circle_at_center,transparent_45%,#4A0517_100%)] z-10 pointer-events-none opacity-80" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#f5f5f5] via-[#f5f5f5]/20 to-[#f5f5f5] dark:from-[#121212] dark:via-[#121212]/20 dark:to-[#121212] z-10 pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,#f5f5f5_100%)] dark:bg-[radial-gradient(circle_at_center,transparent_45%,#121212_100%)] z-10 pointer-events-none opacity-80" />
         </div>
 
         {/* PRISTINE FOREGROUND LAYER - COMPLETELY CARDLESS / BOXLESS */}
@@ -966,37 +968,56 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
             {/* Centered actions - floating, no wrapping boxes */}
             <div className="space-y-2 sm:space-y-3 w-full max-w-[280px] sm:max-w-[310px] px-2">
-              <motion.button
-                id="auth-choice-google-btn"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={() => onSelectAuth('google')}
-                className="w-full flex items-center justify-center gap-3 py-3 border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8]/90 dark:bg-surface-dark/95 text-[#171717] dark:text-white hover:bg-[#ECECEC] dark:hover:bg-white/5 rounded-[18px] font-sans font-medium text-xs sm:text-sm transition-all duration-200 cursor-pointer shadow-md backdrop-blur-sm"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" className="shrink-0">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                <span>Continue with Google</span>
-              </motion.button>
-
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full"
-              >
-                <Button
-                  id="auth-choice-email-btn"
-                  variant="primary"
-                  onClick={() => onSelectAuth('email')}
-                  className="w-full h-[42px] py-2 shadow-lg hover:shadow-xl transition-all duration-200 text-xs sm:text-sm"
+              {firebaseUser ? (
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full"
                 >
-                  <span>Continue with Email</span>
-                </Button>
-              </motion.div>
+                  <Button
+                    id="auth-choice-complete-btn"
+                    variant="primary"
+                    onClick={() => onSelectAuth('email')}
+                    className="w-full h-[46px] py-3 shadow-lg hover:shadow-xl transition-all duration-200 text-sm font-space font-semibold"
+                  >
+                    <span>Complete Sync & Enter Dzinr</span>
+                  </Button>
+                </motion.div>
+              ) : (
+                <>
+                  <motion.button
+                    id="auth-choice-google-btn"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    onClick={() => onSelectAuth('google')}
+                    className="w-full flex items-center justify-center gap-3 py-3 border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8]/90 dark:bg-surface-dark/95 text-[#171717] dark:text-white hover:bg-[#ECECEC] dark:hover:bg-white/5 rounded-[18px] font-sans font-medium text-xs sm:text-sm transition-all duration-200 cursor-pointer shadow-md backdrop-blur-sm"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" className="shrink-0">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    <span>Continue with Google</span>
+                  </motion.button>
+
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full"
+                  >
+                    <Button
+                      id="auth-choice-email-btn"
+                      variant="primary"
+                      onClick={() => onSelectAuth('email')}
+                      className="w-full h-[42px] py-2 shadow-lg hover:shadow-xl transition-all duration-200 text-xs sm:text-sm"
+                    >
+                      <span>Continue with Email</span>
+                    </Button>
+                  </motion.div>
+                </>
+              )}
 
               <button
                 id="auth-choice-back-btn"

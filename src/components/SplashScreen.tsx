@@ -11,7 +11,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ show }) => {
   return (
     <div 
       id="splash-screen-container"
-      className="fixed inset-0 bg-[#4A0517] flex flex-col items-center justify-center z-[999] overflow-hidden"
+      className="fixed inset-0 bg-[#121212] flex flex-col items-center justify-center z-[999] overflow-hidden"
     >
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}

@@ -52,6 +52,7 @@ export default function App() {
   );
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
 
   const [loadingMessage, setLoadingMessage] =
     useState<string>("Authenticating");
@@ -69,11 +70,11 @@ export default function App() {
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (theme === "dark") {
       root.classList.add("dark");
-      root.style.backgroundColor = "#4A0517";
+      root.style.backgroundColor = "#121212";
       document.body.classList.add("dark");
-      document.body.style.backgroundColor = "#4A0517";
+      document.body.style.backgroundColor = "#121212";
       if (themeColorMeta) {
-        themeColorMeta.setAttribute("content", "#4A0517");
+        themeColorMeta.setAttribute("content", "#121212");
       }
     } else {
       root.classList.remove("dark");
@@ -211,9 +212,15 @@ export default function App() {
             );
             setLastUser(profileToSave);
           } else {
-            // Profile does not exist yet. Create a profile using onboarding store answers or sensible defaults!
+            // Profile does not exist yet. Check if they completed onboarding first
             const oStore = useOnboardingStore.getState();
-            await handleSyncOnboardingWithFirestore(reloadedFbUser, oStore);
+            if (oStore.role) {
+              await handleSyncOnboardingWithFirestore(reloadedFbUser, oStore);
+            } else {
+              // Bypassed onboarding! Keep user null, set onboardingRequired to true to force them to complete onboarding
+              setUser(null);
+              setOnboardingRequired(true);
+            }
           }
         } else {
           reset();
@@ -446,7 +453,7 @@ export default function App() {
       id="app-root-theme-container"
       className={`min-h-screen relative flex flex-col transition-colors duration-300 font-sans ${
         theme === "dark"
-          ? "dark bg-[#4A0517] text-white"
+          ? "dark bg-[#121212] text-white"
           : "bg-[#FFFFFF] text-[#171717]"
       }`}
     >
@@ -459,6 +466,7 @@ export default function App() {
         toggleTheme={toggleTheme}
         setShowLogoutConfirm={setShowLogoutConfirm}
         firebaseUser={firebaseUser}
+        isLightboxZoomed={isLightboxZoomed}
       />
 
       {/* MOBILE BOTTOM NAVIGATION */}
@@ -474,7 +482,7 @@ export default function App() {
       <main
         className={`flex-1 w-full relative flex flex-col ${
           showNav
-            ? "max-w-[1400px] mx-auto px-4 md:px-12 py-6 md:pl-[120px] items-center" // Extra padding for sidebar on desktop
+            ? `max-w-[1400px] mx-auto px-4 md:px-12 ${isLightboxOpen ? "py-0" : "py-6"} md:pl-[120px] items-center` // Extra padding for sidebar on desktop
             : "px-0 py-0 w-full max-w-none items-start"
         }`}
         style={showNav ? { paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" } : undefined}
@@ -518,6 +526,10 @@ export default function App() {
                     setEditingProjectId(null);
                     setCurrentPage("project-editor");
                   }}
+                  onLightboxToggle={(isOpen, isZoomed) => {
+                    setIsLightboxOpen(isOpen);
+                    setIsLightboxZoomed(!!isZoomed);
+                  }}
                 />
               ) : currentPage === "project-editor" ? (
                 <ProjectEditorView
@@ -537,7 +549,10 @@ export default function App() {
                   user={user!}
                   theme={theme}
                   onExploreFeed={() => setCurrentPage("feed")}
-                  onLightboxToggle={setIsLightboxOpen}
+                  onLightboxToggle={(isOpen, isZoomed) => {
+                    setIsLightboxOpen(isOpen);
+                    setIsLightboxZoomed(!!isZoomed);
+                  }}
                 />
               ) : currentPage === "feed" ? (
                 <DiscoveryFeedView

@@ -64,9 +64,9 @@ export const Tooltip: React.FC<TooltipProps> = ({
             initial="initial"
             animate="animate"
             exit="exit"
-            className={`absolute z-[9999] pointer-events-none whitespace-nowrap px-2.5 py-1.5 rounded-lg border text-[10px] font-mono uppercase tracking-wider font-bold shadow-lg ${positionClasses[position]} ${
+            className={`hidden sm:block absolute z-[9999] pointer-events-none whitespace-nowrap px-2.5 py-1.5 rounded-lg border text-[10px] font-mono uppercase tracking-wider font-bold shadow-lg ${positionClasses[position]} ${
               theme === "dark"
-                ? "bg-[#5A0A20] border-white/10 text-white shadow-black/30"
+                ? "bg-[#1E1E1E] border-white/10 text-white shadow-black/30"
                 : "bg-white border-neutral-200 text-neutral-800 shadow-neutral-200/55"
             }`}
           >

@@ -579,14 +579,14 @@ export const ProfileSetupFlow: React.FC<ProfileSetupFlowProps> = ({
                 )}
 
                 {uploadMode === 'url' && (
-                  <div className="flex gap-2 w-full max-w-md mx-auto">
+                  <div className="flex gap-2 w-full max-w-md mx-auto items-center">
                     <div className="relative flex-1">
                       <input
                         type="url"
                         value={importUrl}
                         onChange={(e) => setImportUrl(e.target.value)}
                         placeholder="https://behance.net/gallery/..."
-                        className="w-full bg-surface-light dark:bg-surface-dark text-[#171717] dark:text-white text-xs rounded-xl px-4 py-3 border border-divider-light dark:border-divider-dark focus:outline-none focus:border-accent"
+                        className="w-full h-12 bg-surface-light dark:bg-surface-dark text-[#171717] dark:text-white text-xs rounded-xl px-4 border border-divider-light dark:border-divider-dark focus:outline-none focus:border-accent shadow-sm"
                       />
                     </div>
                     <Button
@@ -594,7 +594,7 @@ export const ProfileSetupFlow: React.FC<ProfileSetupFlowProps> = ({
                       onClick={handleUrlImport}
                       loading={uploading}
                       disabled={!importUrl.trim()}
-                      className="py-3 px-5 text-xs font-semibold shrink-0"
+                      className="h-12 px-5 text-xs font-semibold shrink-0 rounded-xl"
                     >
                       <span>Unpack</span>
                     </Button>

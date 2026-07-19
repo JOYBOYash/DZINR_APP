@@ -41,7 +41,7 @@ export const getSafeUserStats = (rawStats: any) => {
 export interface Design {
   id: string;
   userId: string;
-  source: "manual" | "portfolio" | "zip";
+  source: "manual" | "portfolio" | "zip" | "url";
   sourceId: string | null;
   title: string;
   description: string;

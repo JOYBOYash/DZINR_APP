@@ -10,6 +10,7 @@ interface HeaderProps {
   toggleTheme: () => void;
   setShowLogoutConfirm: (show: boolean) => void;
   firebaseUser: any;
+  isLightboxZoomed?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   toggleTheme,
   setShowLogoutConfirm,
   firebaseUser,
+  isLightboxZoomed = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -33,10 +35,11 @@ export const Header: React.FC<HeaderProps> = ({
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
       animate={{ 
-        width: isAuthenticated ? (isExpanded ? "240px" : "80px") : "100%" 
+        width: isAuthenticated ? (isExpanded ? "240px" : "80px") : "100%",
+        x: isLightboxZoomed ? "-260px" : "0px"
       }}
       transition={{ type: "spring", stiffness: 350, damping: 30 }}
-      className={`fixed top-0 left-0 z-[120] flex border-divider-light dark:border-divider-dark backdrop-blur-md bg-white/70 dark:bg-[#4A0517]/70 ${
+      className={`fixed top-0 left-0 z-[120] flex border-divider-light dark:border-divider-dark backdrop-blur-md bg-white/70 dark:bg-[#121212]/70 transition-[background-color,border-color] duration-300 ${
         isAuthenticated 
           ? "hidden md:flex flex-col h-screen border-r py-8 justify-between px-4 overflow-hidden" 
           : "hidden md:flex w-full px-8 py-5 border-b justify-between items-center"
@@ -64,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
               transition={{
                 duration: 0.15,
                 ease: "easeOut",
-                delay: isExpanded ? 0.12 : 0
+                delay: isExpanded ? 0.22 : 0
               }}
               className="h-5 flex items-center shrink-0"
             >
@@ -112,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({
                       transition={{
                         duration: 0.15,
                         ease: "easeOut",
-                        delay: isExpanded ? 0.12 : 0
+                        delay: isExpanded ? 0.22 : 0
                       }}
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
@@ -155,54 +158,11 @@ export const Header: React.FC<HeaderProps> = ({
                       transition={{
                         duration: 0.15,
                         ease: "easeOut",
-                        delay: isExpanded ? 0.12 : 0
+                        delay: isExpanded ? 0.22 : 0
                       }}
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
                       Saved Vault
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
-            </button>
-
-            {/* Profile Tab */}
-            <button
-              id="header-nav-profile"
-              onClick={() => setCurrentPage("profile")}
-              className={`relative flex items-center w-full h-12 rounded-[18px] transition-all cursor-pointer group ${
-                currentPage === "profile"
-                  ? "text-white"
-                  : "text-[#555555] dark:text-[#D7D7D7] hover:bg-[#F7F7F8] dark:hover:bg-white/5"
-              }`}
-            >
-              {currentPage === "profile" && (
-                <motion.div
-                  layoutId="sidebar-active-indicator"
-                  className="absolute inset-0 rounded-[18px] bg-accent shadow-[0_4px_16px_rgba(201,0,35,0.3)]"
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                />
-              )}
-              <div className="relative z-10 flex items-center gap-3.5 px-3.5">
-                <User
-                  size={20}
-                  strokeWidth={currentPage === "profile" ? 2.5 : 2}
-                  className="shrink-0"
-                />
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.span
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{
-                        duration: 0.15,
-                        ease: "easeOut",
-                        delay: isExpanded ? 0.12 : 0
-                      }}
-                      className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
-                    >
-                      My Profile
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -241,11 +201,54 @@ export const Header: React.FC<HeaderProps> = ({
                       transition={{
                         duration: 0.15,
                         ease: "easeOut",
-                        delay: isExpanded ? 0.12 : 0
+                        delay: isExpanded ? 0.22 : 0
                       }}
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
                       Projects
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </button>
+
+            {/* Profile Tab */}
+            <button
+              id="header-nav-profile"
+              onClick={() => setCurrentPage("profile")}
+              className={`relative flex items-center w-full h-12 rounded-[18px] transition-all cursor-pointer group ${
+                currentPage === "profile"
+                  ? "text-white"
+                  : "text-[#555555] dark:text-[#D7D7D7] hover:bg-[#F7F7F8] dark:hover:bg-white/5"
+              }`}
+            >
+              {currentPage === "profile" && (
+                <motion.div
+                  layoutId="sidebar-active-indicator"
+                  className="absolute inset-0 rounded-[18px] bg-accent shadow-[0_4px_16px_rgba(201,0,35,0.3)]"
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                />
+              )}
+              <div className="relative z-10 flex items-center gap-3.5 px-3.5">
+                <User
+                  size={20}
+                  strokeWidth={currentPage === "profile" ? 2.5 : 2}
+                  className="shrink-0"
+                />
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{
+                        duration: 0.15,
+                        ease: "easeOut",
+                        delay: isExpanded ? 0.22 : 0
+                      }}
+                      className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
+                    >
+                      My Profile
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -283,7 +286,7 @@ export const Header: React.FC<HeaderProps> = ({
                     transition={{
                       duration: 0.15,
                       ease: "easeOut",
-                      delay: isExpanded ? 0.12 : 0
+                      delay: isExpanded ? 0.22 : 0
                     }}
                     className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                   >
@@ -313,7 +316,7 @@ export const Header: React.FC<HeaderProps> = ({
                     transition={{
                       duration: 0.15,
                       ease: "easeOut",
-                      delay: isExpanded ? 0.12 : 0
+                      delay: isExpanded ? 0.22 : 0
                     }}
                     className="text-sm font-space font-medium tracking-wide whitespace-nowrap text-accent dark:text-neutral-200 font-semibold"
                   >

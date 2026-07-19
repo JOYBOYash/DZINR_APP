@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Move, ZoomIn } from "lucide-react";
 import { UserProfile } from "../types";
 import { Design } from "../services/design.service";
 import { discoveryService } from "../services/discovery.service";
@@ -14,7 +14,7 @@ interface SavedVaultViewProps {
   user: UserProfile;
   theme: "dark" | "light";
   onExploreFeed: () => void;
-  onLightboxToggle?: (isOpen: boolean) => void;
+  onLightboxToggle?: (isOpen: boolean, isZoomed?: boolean) => void;
 }
 
 export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
@@ -41,8 +41,9 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
 
   // Sync lightbox open state to parent to hide global navigation
   useEffect(() => {
-    onLightboxToggle?.(!!lightboxDesign);
-  }, [lightboxDesign, onLightboxToggle]);
+    const isZoomed = !!lightboxDesign && (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0);
+    onLightboxToggle?.(!!lightboxDesign, isZoomed);
+  }, [lightboxDesign, zoomScale, panOffset, onLightboxToggle]);
 
   // Automatically reset collapse state and zoom on mobile vs desktop when design changes
   useEffect(() => {
@@ -53,6 +54,48 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       setPanOffset({ x: 0, y: 0 });
     }
   }, [lightboxDesign]);
+
+  const [showViewerGuide, setShowViewerGuide] = useState(false);
+  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+
+  // Guide overlay timeout and auto-dismiss on user interaction
+  useEffect(() => {
+    if (lightboxDesign) {
+      setShowViewerGuide(true);
+
+      const dismissGuide = () => {
+        setShowViewerGuide(false);
+      };
+
+      // 3 second timer
+      const timer = setTimeout(dismissGuide, 3000);
+
+      // Listeners for click, scroll/wheel, or touch (registered after a slight delay)
+      const setupListenersTimer = setTimeout(() => {
+        window.addEventListener("mousedown", dismissGuide, { passive: true });
+        window.addEventListener("wheel", dismissGuide, { passive: true });
+        window.addEventListener("touchstart", dismissGuide, { passive: true });
+        window.addEventListener("touchmove", dismissGuide, { passive: true });
+      }, 300);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(setupListenersTimer);
+        window.removeEventListener("mousedown", dismissGuide);
+        window.removeEventListener("wheel", dismissGuide);
+        window.removeEventListener("touchstart", dismissGuide);
+        window.removeEventListener("touchmove", dismissGuide);
+      };
+    } else {
+      setShowViewerGuide(false);
+    }
+  }, [lightboxDesign]);
+
+  useEffect(() => {
+    if (lightboxDesign && (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0)) {
+      setIsPanelCollapsed(true);
+    }
+  }, [zoomScale, panOffset, lightboxDesign]);
 
   // Helper to clamp pan offsets within exact image boundary bounds
   const clampTranslate = (x: number, y: number, scaleVal: number) => {
@@ -360,7 +403,10 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
         await Promise.all(
           rawDesigns.map(async (design) => {
             const creatorId = design.userId;
-            if (!creatorId) return;
+            if (!creatorId) {
+              validDesigns.push(design);
+              return;
+            }
 
             // Use cache if available
             if (resolvedNames[creatorId]) {
@@ -372,11 +418,14 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               const profile = await userService.getUserProfile(creatorId);
               if (profile) {
                 resolvedNames[creatorId] = profile.username;
-                validDesigns.push(design);
+              } else {
+                resolvedNames[creatorId] = "creator";
               }
             } catch (err) {
               console.warn("Error fetching user profile for verification:", creatorId, err);
+              resolvedNames[creatorId] = "creator";
             }
+            validDesigns.push(design);
           })
         );
 
@@ -567,15 +616,29 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`fixed inset-0 md:left-[80px] backdrop-blur-xl z-[100] flex flex-col md:flex-row overflow-hidden transition-colors duration-300 ${
+            className={`fixed inset-0 backdrop-blur-xl z-[130] flex flex-col md:flex-row overflow-hidden transition-all duration-300 ${
               theme === "dark" 
-                ? "bg-[#4A0517]/98 text-white" 
+                ? "bg-[#121212]/98 text-white" 
                 : "bg-[#FFFFFF]/98 text-[#171717]"
             }`}
             onClick={() => setLightboxDesign(null)}
           >
+            {/* Top Hover Sensor Bar */}
+            <div 
+              onMouseEnter={() => setIsHeaderHovered(true)}
+              onMouseLeave={() => setIsHeaderHovered(false)}
+              className="absolute top-0 left-0 right-0 h-20 z-20 pointer-events-auto"
+            />
+
             {/* Top Header Controls (Floating on Desktop and Mobile) */}
-            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-30 pointer-events-none" onClick={(e) => e.stopPropagation()}>
+            <div 
+              className={`absolute top-4 left-4 right-4 flex items-center justify-between z-30 pointer-events-none transition-all duration-300 ${
+                (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0) && !isHeaderHovered
+                  ? "opacity-0 pointer-events-none"
+                  : "opacity-100"
+              }`} 
+              onClick={(e) => e.stopPropagation()}
+            >
               {/* Creator Info on Left (Only visible if details panel is collapsed to avoid redundancy) */}
               <div className="pointer-events-auto">
                 <AnimatePresence>
@@ -586,7 +649,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                       exit={{ opacity: 0, x: -10 }}
                       className={`flex items-center gap-2 p-1.5 pl-2.5 pr-4 rounded-full border shadow-md backdrop-blur-md transition-colors ${
                         theme === "dark"
-                          ? "bg-[#5A0A20]/90 border-white/10 text-white"
+                          ? "bg-[#1E1E1E]/90 border-white/10 text-white"
                           : "bg-white/95 border-neutral-200 text-[#171717]"
                       }`}
                     >
@@ -608,13 +671,13 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               </div>
 
               {/* Control Buttons on Right */}
-              <div className="flex items-center gap-2 pointer-events-auto">
+              <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
                 {/* Unsave Toggle Button */}
                 <Tooltip content="Remove from Saved" theme={theme} position="bottom">
                   <button
                     onClick={() => handleUnsave(lightboxDesign.id)}
                     disabled={isUnsavingId === lightboxDesign.id}
-                    className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                    className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
                       theme === "dark"
                         ? "bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border-red-500/20"
                         : "bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border-red-200"
@@ -628,9 +691,9 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 <Tooltip content={isPanelCollapsed ? "Show Details" : "Hide Details"} theme={theme} position="bottom">
                   <button
                     onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-                    className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                    className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
                       theme === "dark"
-                        ? "bg-[#5A0A20]/80 hover:bg-[#68102A] text-white border-[#68102A]"
+                        ? "bg-[#1E1E1E]/80 hover:bg-[#2B2B2B] text-white border-[#2B2B2B]"
                         : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
                     }`}
                   >
@@ -642,9 +705,9 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 <Tooltip content="Close Viewer" theme={theme} position="bottom">
                   <button
                     onClick={() => setLightboxDesign(null)}
-                    className={`p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                    className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
                       theme === "dark"
-                        ? "bg-[#5A0A20]/80 hover:bg-[#68102A] text-white border-[#68102A]"
+                        ? "bg-[#1E1E1E]/80 hover:bg-[#2B2B2B] text-white border-[#2B2B2B]"
                         : "bg-white hover:bg-neutral-100 text-[#171717] border-neutral-200"
                     }`}
                   >
@@ -654,13 +717,36 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               </div>
             </div>
 
+            {/* Scroll/Pan Viewer Guide Popup */}
+            <AnimatePresence>
+              {showViewerGuide && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2.5 sm:gap-4 px-5 py-3 rounded-2xl bg-neutral-900/90 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10"
+                >
+                  <div className="flex items-center gap-2">
+                    <ZoomIn size={16} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll to Zoom</span>
+                  </div>
+                  <div className="hidden sm:block h-4 w-px bg-white/20 dark:bg-neutral-300" />
+                  <div className="flex items-center gap-2">
+                    <Move size={16} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan to Move</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Left Content Area - Centers Image on Dark/Light Canvas with Premium Ambient Aura */}
             <div 
               ref={imageAreaRef}
               className={`flex-1 relative flex items-center justify-center select-none h-full md:h-full overflow-hidden transition-all duration-300 ${
                 !isPanelCollapsed 
-                  ? "p-4 pb-[312px] md:p-0" 
-                  : "p-4 pb-[74px] md:p-0"
+                  ? "p-4 pb-[calc(324px+env(safe-area-inset-bottom,0px))] md:p-0" 
+                  : "p-4 pb-[calc(74px+env(safe-area-inset-bottom,0px))] md:p-0"
               }`}
               onClick={() => setLightboxDesign(null)}
             >
@@ -681,7 +767,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               <div 
                 className={`absolute inset-0 pointer-events-none z-0 ${
                   theme === "dark" 
-                    ? "bg-gradient-to-t from-[#4A0517]/85 via-transparent to-[#4A0517]/85" 
+                    ? "bg-gradient-to-t from-[#121212]/85 via-transparent to-[#121212]/85" 
                     : "bg-gradient-to-t from-white/70 via-transparent to-white/70"
                 }`}
               />
@@ -744,7 +830,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               transition={{ type: "spring", damping: 30, stiffness: 250 }}
               className={`hidden md:flex relative h-full border-l flex-col justify-between shrink-0 z-10 overflow-hidden ${
                 theme === "dark" 
-                  ? "bg-[#5A0A20] border-divider-dark text-white" 
+                  ? "bg-[#1E1E1E] border-divider-dark text-white" 
                   : "bg-white border-neutral-200 text-[#171717]"
               }`}
               onClick={(e) => e.stopPropagation()}
@@ -854,9 +940,9 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 opacity: isPanelCollapsed ? 0 : 1
               }}
               transition={{ type: "spring", damping: 30, stiffness: 250 }}
-              className={`flex md:hidden absolute inset-x-0 bottom-[58px] flex-col z-40 overflow-hidden rounded-t-3xl transition-colors duration-300 ${
+              className={`flex md:hidden absolute inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom,0px))] flex-col z-40 overflow-hidden rounded-t-3xl transition-colors duration-300 ${
                 theme === "dark" 
-                  ? "bg-[#5A0A20] border-t border-divider-dark text-white shadow-[0_-15px_40px_rgba(0,0,0,0.5)]" 
+                  ? "bg-[#1E1E1E] border-t border-divider-dark text-white shadow-[0_-15px_40px_rgba(0,0,0,0.5)]" 
                   : "bg-white border-t border-neutral-200 text-[#171717] shadow-[0_-15px_40px_rgba(0,0,0,0.1)]"
               }`}
               onClick={(e) => e.stopPropagation()}

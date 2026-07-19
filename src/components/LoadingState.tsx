@@ -18,7 +18,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       id={id} 
       className={`fixed inset-0 flex flex-col items-center justify-center z-50 px-6 overflow-hidden transition-colors duration-300 ${
         theme === "dark"
-          ? "bg-[#4A0517]"
+          ? "bg-[#121212]"
           : "bg-white"
       }`}
     >

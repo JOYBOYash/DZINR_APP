@@ -11,6 +11,7 @@ import {
   Heart, 
   X, 
   ZoomIn,
+  Move,
   Palette, 
   Layers, 
   Compass, 
@@ -26,22 +27,17 @@ import {
   Aperture, 
   Maximize2,
   Command,
-  Cpu,
   Shapes,
-  Workflow,
-  Atom,
-  Infinity,
   Paintbrush,
-  Flame,
-  Zap,
-  Code2,
-  Terminal,
-  Sliders,
-  Braces,
-  Target,
-  Hash,
-  Disc,
-  Wind
+  Figma,
+  Contrast,
+  SwatchBook,
+  Pipette,
+  Spline,
+  Crop,
+  Frame,
+  Image,
+  Ruler
 } from "lucide-react";
 import { UserProfile } from "../types";
 import { Design } from "../services/design.service";
@@ -51,38 +47,32 @@ import { useToastStore } from "../stores/toast.store";
 import { Loader } from "./Loader";
 import { Button } from "./Button";
 
-interface MarqueeIconRowProps {
-  icons: React.ComponentType<any>[];
+interface MarqueeEmojiRowProps {
+  emojis: string[];
   speed: number;
   theme: "dark" | "light";
   size?: number;
-  strokeWidth?: number;
-  opacityClass?: string;
-  accentOpacityClass?: string;
 }
 
-const MarqueeIconRow: React.FC<MarqueeIconRowProps> = ({ 
-  icons, 
+const MarqueeEmojiRow: React.FC<MarqueeEmojiRowProps> = ({ 
+  emojis, 
   speed, 
   theme,
-  size = 40,
-  strokeWidth = 1.25,
-  opacityClass,
-  accentOpacityClass
+  size = 40
 }) => {
-  // Repeat the icons array to ensure smooth continuous scroll
-  const repeatedIcons = [...icons, ...icons, ...icons, ...icons, ...icons, ...icons];
+  // Repeat the emojis array to ensure smooth continuous scroll
+  const repeatedEmojis = [...emojis, ...emojis, ...emojis, ...emojis, ...emojis, ...emojis];
   
-  const iconColor = opacityClass || (theme === "dark" 
-    ? "text-white/[0.07]" 
-    : "text-neutral-900/[0.12]");
+  const baseOpacity = theme === "dark" 
+    ? "opacity-[0.05] hover:opacity-[0.14] transition-opacity duration-300" 
+    : "opacity-[0.09] hover:opacity-[0.20] transition-opacity duration-300";
 
-  const accentColor = accentOpacityClass || (theme === "dark"
-    ? "text-[#C90023]/[0.16]"
-    : "text-[#C90023]/[0.22]");
+  const accentOpacity = theme === "dark"
+    ? "opacity-[0.10] hover:opacity-[0.22] transition-opacity duration-300"
+    : "opacity-[0.16] hover:opacity-[0.28] transition-opacity duration-300";
 
   return (
-    <div className="flex whitespace-nowrap w-full overflow-hidden select-none pointer-events-none my-1.5 md:my-2">
+    <div className="flex whitespace-nowrap w-full overflow-hidden select-none pointer-events-none my-1">
       <motion.div
         className="flex gap-20 items-center select-none"
         animate={{ x: ["-33.333%", "0%"] }}
@@ -92,17 +82,18 @@ const MarqueeIconRow: React.FC<MarqueeIconRowProps> = ({
           repeat: Infinity,
         }}
       >
-        {repeatedIcons.map((IconComponent, idx) => {
+        {repeatedEmojis.map((emoji, idx) => {
           const isAccent = idx % 5 === 0;
           return (
-            <div 
+            <span 
               key={idx} 
-              className={`flex items-center justify-center shrink-0 transition-colors ${
-                isAccent ? accentColor : iconColor
+              className={`shrink-0 select-none text-center flex items-center justify-center transition-opacity duration-300 ${
+                isAccent ? accentOpacity : baseOpacity
               }`}
+              style={{ fontSize: `${size}px`, lineHeight: 1 }}
             >
-              <IconComponent size={size} strokeWidth={strokeWidth} />
-            </div>
+              {emoji}
+            </span>
           );
         })}
       </motion.div>
@@ -115,35 +106,23 @@ interface AmbientBackgroundMarqueeProps {
 }
 
 const AmbientBackgroundMarquee: React.FC<AmbientBackgroundMarqueeProps> = ({ theme }) => {
-  const row1 = [Paintbrush, Sparkles, Command, Palette, Layers, Infinity];
-  const row2 = [Gem, Target, Eye, Aperture, Cpu, Compass];
-  const row3 = [Code2, Terminal, Braces, Flame, Zap, Sliders];
-  const row4 = [Workflow, Crown, Shapes, Box, Grid, Triangle];
-  const row5 = [Atom, Feather, PenTool, Maximize2, Component, Disc];
-  const row6 = [Wind, Hash, Palette, Layers, Compass, Gem];
-  const row7 = [Command, Cpu, Aperture, Sparkles, Target, Infinity];
-  const row8 = [Paintbrush, Flame, Zap, Shapes, Workflow, Atom];
-  const row9 = [Code2, Terminal, Sliders, Braces, Eye, Crown];
-  const row10 = [Component, Triangle, Gem, Box, Grid, Feather];
-  const row11 = [PenTool, Maximize2, Disc, Wind, Hash, Palette];
-  const row12 = [Layers, Compass, Sparkles, Eye, Command, Sliders];
+  const row1 = ["🎨", "✨", "📱", "🎯", "🚀", "💻"];
+  const row2 = ["📐", "🛠️", "💖", "💡", "📊", "🌟"];
+  const row3 = ["⚡️", "🎨", "🧪", "📈", "❤️", "📏"];
+  const row4 = ["💻", "⚙️", "💯", "📌", "🏎️", "✨"];
+  const row5 = ["🎨", "📱", "🎯", "🚀", "💡", "💖"];
+  const row6 = ["📐", "🛠️", "📊", "🌟", "⚡️", "🧪"];
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none select-none flex items-center justify-center">
       {/* Dense container rotated 45 degrees to align diagonal streams perfectly from top-left to bottom-right */}
-      <div className="absolute w-[220vw] h-[220vh] flex flex-col justify-between rotate-[45deg] scale-105 opacity-100">
-        <MarqueeIconRow icons={row1} speed={45} theme={theme} size={36} strokeWidth={1.5} />
-        <MarqueeIconRow icons={row2} speed={55} theme={theme} size={48} strokeWidth={1.0} />
-        <MarqueeIconRow icons={row3} speed={38} theme={theme} size={40} strokeWidth={1.3} />
-        <MarqueeIconRow icons={row4} speed={65} theme={theme} size={52} strokeWidth={0.8} />
-        <MarqueeIconRow icons={row5} speed={48} theme={theme} size={44} strokeWidth={1.2} />
-        <MarqueeIconRow icons={row6} speed={52} theme={theme} size={38} strokeWidth={1.4} />
-        <MarqueeIconRow icons={row7} speed={42} theme={theme} size={46} strokeWidth={1.1} />
-        <MarqueeIconRow icons={row8} speed={60} theme={theme} size={34} strokeWidth={1.6} />
-        <MarqueeIconRow icons={row9} speed={50} theme={theme} size={50} strokeWidth={0.9} />
-        <MarqueeIconRow icons={row10} speed={58} theme={theme} size={42} strokeWidth={1.2} />
-        <MarqueeIconRow icons={row11} speed={46} theme={theme} size={48} strokeWidth={1.0} />
-        <MarqueeIconRow icons={row12} speed={54} theme={theme} size={36} strokeWidth={1.5} />
+      <div className="absolute w-[220vw] h-[220vh] flex flex-col items-center justify-center gap-10 md:gap-14 rotate-[45deg] scale-105 opacity-100">
+        <MarqueeEmojiRow emojis={row1} speed={45} theme={theme} size={36} />
+        <MarqueeEmojiRow emojis={row2} speed={55} theme={theme} size={48} />
+        <MarqueeEmojiRow emojis={row3} speed={38} theme={theme} size={40} />
+        <MarqueeEmojiRow emojis={row4} speed={65} theme={theme} size={52} />
+        <MarqueeEmojiRow emojis={row5} speed={48} theme={theme} size={44} />
+        <MarqueeEmojiRow emojis={row6} speed={52} theme={theme} size={38} />
       </div>
     </div>
   );
@@ -170,7 +149,7 @@ interface DiscoveryCardProps {
   isStackHovered?: boolean;
 }
 
-const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
+const DiscoveryCard = React.memo(({
   card,
   user,
   theme,
@@ -182,7 +161,7 @@ const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
   onExpand,
   isMobile,
   isStackHovered = false,
-}) => {
+}: DiscoveryCardProps) => {
   const isTopCard = index === 0;
 
   // Encapsulated motion values per card to avoid state leakages and stuck indicators
@@ -298,11 +277,14 @@ const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
       whileHover={isTopCard ? "hover" : undefined}
       whileTap={isTopCard ? "tap" : undefined}
       variants={isTopCard ? topCardVariants : undefined}
-      className={`absolute inset-0 w-full h-full rounded-[28px] overflow-hidden shadow-2xl border border-divider-light dark:border-white/10 bg-black flex flex-col justify-end ${
+      className={`absolute inset-0 w-full h-full rounded-[28px] overflow-hidden shadow-2xl border border-divider-light dark:border-white/10 ${
+        theme === "dark" ? "bg-black" : "bg-neutral-100"
+      } flex flex-col justify-end ${
         isTopCard ? "cursor-grab active:cursor-grabbing" : ""
       }`}
       transition={{ type: "spring", stiffness: 350, damping: 28 }}
     >
+
       {/* 1. Large Hero Design Preview - Click to Expand Area */}
       <div
         onClick={(e) => {
@@ -436,7 +418,7 @@ const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
       </div>
     </motion.div>
   );
-};
+});
 
 export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   user,
@@ -447,6 +429,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   const { showToast } = useToastStore();
   const [designs, setDesigns] = useState<Design[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [syncingOffline, setSyncingOffline] = useState<boolean>(false);
   const [lastDocCursor, setLastDocCursor] = useState<any>(null);
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState<boolean>(false);
@@ -492,6 +475,22 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   useEffect(() => {
     setZoomScale(1);
     setPanOffset({ x: 0, y: 0 });
+  }, [expandedCard]);
+
+  const [showViewerGuide, setShowViewerGuide] = useState(false);
+  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+
+  // Guide overlay timeout
+  useEffect(() => {
+    if (expandedCard) {
+      setShowViewerGuide(true);
+      const timer = setTimeout(() => {
+        setShowViewerGuide(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowViewerGuide(false);
+    }
   }, [expandedCard]);
 
   // Unified WhatsApp-style gestures for popup zoom & pan
@@ -799,6 +798,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
     if (isRefresh) {
       setLoading(true);
     }
+    setError(null);
     try {
       const cursor = isRefresh ? null : lastDocCursor;
       const result = await discoveryService.getDiscoveryFeed(user, cursor, 20);
@@ -820,6 +820,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
       }
     } catch (err) {
       console.error("Failed to load discovery feed:", err);
+      setError("connection_error");
       showToast("Failed to fetch discovery cards. Are you offline?", "error");
     } finally {
       setLoading(false);
@@ -943,40 +944,45 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
     );
   }
 
-  // Beautiful ended feed state with the "data not found" SVG and custom requested message
+  // Beautiful ended feed state with the "data not found" or "broken error" SVG
   if (designs.length === 0) {
+    const isConnectionError = error === "connection_error";
+    const graphicSrc = isConnectionError
+      ? (theme === "dark" ? "/broken-error-d.svg" : "/broken-error-l.svg")
+      : (theme === "dark" ? "/no-data-found-d.svg" : "/no-data-found-l.svg");
+
     return (
       <div className="w-full max-w-md mx-auto py-24 px-6 flex flex-col items-center justify-center text-center animate-fadeIn relative overflow-hidden">
         <AmbientBackgroundMarquee theme={theme} />
         <div className="relative z-10 flex flex-col items-center justify-center text-center w-full">
-          <div className="relative mb-6">
+          <div className="relative mb-6 select-none pointer-events-none">
             <div className="absolute inset-0 bg-accent/5 blur-3xl rounded-full scale-150" />
-            <svg className="w-44 h-44 text-accent/30 dark:text-accent/40 relative z-10" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="80" cy="80" r="64" stroke="currentColor" strokeWidth="2" strokeDasharray="8 8" />
-              <rect x="55" y="45" width="50" height="70" rx="8" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
-              <line x1="67" y1="65" x2="93" y2="65" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-              <line x1="67" y1="80" x2="83" y2="80" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-              <circle cx="105" cy="115" r="18" stroke="currentColor" strokeWidth="3" fill="none" />
-              <line x1="117" y1="127" x2="132" y2="142" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-            </svg>
+            <img 
+              src={graphicSrc} 
+              alt={isConnectionError ? "No connection error illustration" : "No designs found illustration"}
+              className="w-48 h-48 sm:w-56 sm:h-56 object-contain relative z-10 transition-transform hover:scale-105 duration-300"
+              referrerPolicy="no-referrer"
+            />
           </div>
 
           <h3 className="text-xl font-bold font-space tracking-tight text-[#171717] dark:text-white uppercase">
-            You're all caught up
+            {isConnectionError ? "Could not connect" : "You're all caught up"}
           </h3>
           
           <p className="text-sm text-[#555555] dark:text-[#D7D7D7] mt-3 leading-relaxed max-w-xs font-medium">
-            We're working on building you fresh feed! Come back in a bit or refresh to see newly indexed designs.
+            {isConnectionError 
+              ? "We couldn't connect to the design servers. Please check your internet connection or retry."
+              : "We're working on building you fresh feed! Come back in a bit or refresh to see newly indexed designs."}
           </p>
 
-          <div className="mt-8 flex flex-col gap-3 w-full">
+          <div className="mt-8 flex flex-col gap-3 w-full animate-fadeIn" style={{ animationDelay: "150ms" }}>
             <Button
               id="refresh-feed-end"
               onClick={() => fetchFeedBatch(true)}
               className="w-full py-3 px-6 text-sm font-semibold flex items-center justify-center gap-2"
             >
               <RefreshCw size={15} />
-              <span>Refresh Feed</span>
+              <span>{isConnectionError ? "Retry Connection" : "Refresh Feed"}</span>
             </Button>
 
             {onExploreCategories && (
@@ -997,84 +1003,105 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   const stackedCards = designs.slice(0, maxVisibleCards);
 
   return (
-    <div className="w-full max-w-[440px] md:max-w-[1100px] mx-auto flex flex-col items-center justify-center select-none py-2 pb-6 px-2 md:px-0 overflow-visible relative">
-      {/* Immersive ambient non-selectable diagonal moving text marquee background */}
-      <AmbientBackgroundMarquee theme={theme} />
+    <>
+      <motion.div
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 150 }}
+        dragElastic={0.2}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100) {
+            fetchFeedBatch(true);
+          }
+        }}
+        className="w-full max-w-[440px] md:max-w-[1100px] mx-auto flex flex-col items-center justify-center select-none py-2 pb-6 px-2 md:px-0 overflow-visible relative"
+      >
+        {/* Immersive ambient non-selectable diagonal moving text marquee background */}
+        <AmbientBackgroundMarquee theme={theme} />
 
-      <div className="relative z-10 w-full flex flex-col items-center justify-center overflow-visible">
-        {syncingOffline && (
-          <div className={`mb-4 text-xs font-mono flex items-center gap-2 animate-pulse ${
-            theme === "dark" ? "text-white" : "text-accent"
-          }`}>
-            <RefreshCw size={12} className="animate-spin" />
-            <span>Synchronizing offline reviews with cloud...</span>
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={loading ? "loading" : "feed"}
+            initial={{ y: loading ? -20 : 0, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: loading ? 20 : 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="relative z-10 w-full flex flex-col items-center justify-center overflow-visible"
+          >
+            {syncingOffline && (
+              <div className={`mb-4 text-xs font-mono flex items-center gap-2 animate-pulse ${
+                theme === "dark" ? "text-white" : "text-accent"
+              }`}>
+                <RefreshCw size={12} className="animate-spin" />
+                <span>Synchronizing offline reviews with cloud...</span>
+              </div>
+            )}
 
-        {/* Immersive Tinder-like full size card deck container */}
-        <div 
-          onMouseEnter={() => setIsStackHovered(true)}
-          onMouseLeave={() => setIsStackHovered(false)}
-          className="relative w-full max-w-[440px] md:max-w-[440px] h-[76vh] md:h-[80vh] min-h-[580px] max-h-[820px] flex items-center justify-center overflow-visible"
-        >
-          {/* Render background cards first so top card is rendered last in DOM order for focus/drag overlay correctness */}
-          <AnimatePresence>
-            {stackedCards.slice().reverse().map((card) => {
-              const index = stackedCards.indexOf(card);
-              return (
-                <DiscoveryCard
-                  key={card.id}
-                  card={card}
-                  user={user}
-                  theme={theme}
-                  activeCreator={activeCreator}
-                  handleSwipe={handleSwipe}
-                  showToast={showToast}
-                  index={index}
-                  totalInStack={stackedCards.length}
-                  onExpand={() => setExpandedCard(card)}
-                  isMobile={isMobile}
-                  isStackHovered={isStackHovered}
-                />
-              );
-            })}
-          </AnimatePresence>
-
-          {/* Sticky Question Mark Help Icons */}
-          {isMobile ? (
-            <button
-              onClick={() => {
-                setOnboardingStep(0);
-                setShowOnboarding(true);
-              }}
-              className={`absolute -top-12 right-2 z-40 w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center cursor-pointer active:scale-95 transition-all shadow-lg ${
-                theme === "dark" 
-                  ? "bg-surface-dark/90 border-white/10 text-white hover:bg-elevated-dark" 
-                  : "bg-white/95 border-neutral-200/80 text-[#171717] hover:bg-neutral-50"
-              }`}
-              title="Gestures Tutorial"
+            {/* Immersive Tinder-like full size card deck container */}
+            <div 
+              onMouseEnter={() => setIsStackHovered(true)}
+              onMouseLeave={() => setIsStackHovered(false)}
+              className="relative w-full max-w-[440px] md:max-w-[440px] h-[76vh] md:h-[80vh] min-h-[580px] max-h-[820px] flex items-center justify-center overflow-visible"
             >
-              <HelpCircle size={18} className="text-accent" />
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                setOnboardingStep(0);
-                setShowOnboarding(true);
-              }}
-              className={`absolute bottom-[-60px] left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-5 py-2.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition-all shadow-xl cursor-pointer font-sans ${
-                theme === "dark" 
-                  ? "bg-[#171717] hover:bg-neutral-800 border-white/10 text-neutral-300 hover:text-white" 
-                  : "bg-white hover:bg-neutral-50 border-neutral-200/80 text-[#555555] hover:text-[#171717]"
-              }`}
-              title="Show Feed Gestures Tutorial"
-            >
-              <HelpCircle size={15} className="text-accent" />
-              <span>Gestures Guide</span>
-            </button>
-          )}
-        </div>
-      </div>
+              {/* Render background cards first so top card is rendered last in DOM order for focus/drag overlay correctness */}
+              <AnimatePresence>
+                {stackedCards.slice().reverse().map((card) => {
+                  const index = stackedCards.indexOf(card);
+                  return (
+                    <DiscoveryCard
+                      key={card.id}
+                      card={card}
+                      user={user}
+                      theme={theme}
+                      activeCreator={activeCreator}
+                      handleSwipe={handleSwipe}
+                      showToast={showToast}
+                      index={index}
+                      totalInStack={stackedCards.length}
+                      onExpand={() => setExpandedCard(card)}
+                      isMobile={isMobile}
+                      isStackHovered={isStackHovered}
+                    />
+                  );
+                })}
+              </AnimatePresence>
+
+              {/* Sticky Question Mark Help Icons */}
+              {isMobile ? (
+                <button
+                  onClick={() => {
+                    setOnboardingStep(0);
+                    setShowOnboarding(true);
+                  }}
+                  className={`absolute -top-12 right-2 z-40 w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center cursor-pointer active:scale-95 transition-all shadow-lg ${
+                    theme === "dark" 
+                      ? "bg-surface-dark/90 border-white/10 text-white hover:bg-elevated-dark" 
+                      : "bg-white/95 border-neutral-200/80 text-[#171717] hover:bg-neutral-50"
+                  }`}
+                  title="Gestures Tutorial"
+                >
+                  <HelpCircle size={18} className="text-accent" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setOnboardingStep(0);
+                    setShowOnboarding(true);
+                  }}
+                  className={`absolute bottom-[-60px] left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-5 py-2.5 rounded-full border text-xs font-semibold uppercase tracking-wider transition-all shadow-xl cursor-pointer font-sans ${
+                    theme === "dark" 
+                      ? "bg-[#171717] hover:bg-neutral-800 border-white/10 text-neutral-300 hover:text-white" 
+                      : "bg-white hover:bg-neutral-50 border-neutral-200/80 text-[#555555] hover:text-[#171717]"
+                  }`}
+                  title="Show Feed Gestures Tutorial"
+                >
+                  <HelpCircle size={15} className="text-accent" />
+                  <span>Gestures Guide</span>
+                </button>
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
 
       {/* IMMERSIVE FULL SCREEN IMAGE ZOOM PREVIEW POPUP */}
       <AnimatePresence>
@@ -1086,8 +1113,21 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
             onClick={() => setExpandedCard(null)}
             className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 md:p-8 select-none"
           >
+            {/* Top Hover Sensor Bar */}
+            <div 
+              onMouseEnter={() => setIsHeaderHovered(true)}
+              onMouseLeave={() => setIsHeaderHovered(false)}
+              className="absolute top-0 left-0 right-0 h-20 z-20 pointer-events-auto"
+            />
+
             {/* Top Close & Meta Bar */}
-            <div className="absolute top-6 left-6 right-6 z-10 flex items-center justify-between text-white pointer-events-none">
+            <div 
+              className={`absolute top-6 left-6 right-6 z-10 flex items-center justify-between text-white pointer-events-none transition-all duration-300 ${
+                (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0) && !isHeaderHovered
+                  ? "opacity-0 pointer-events-none"
+                  : "opacity-100"
+              }`}
+            >
               <div className="flex flex-col drop-shadow-md">
                 <span className="text-xs font-mono uppercase tracking-widest text-neutral-400">Viewing Design</span>
                 <h4 className="text-sm font-bold font-space">{expandedCard.title}</h4>
@@ -1102,6 +1142,29 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                 <X size={20} />
               </button>
             </div>
+
+            {/* Scroll/Pan Viewer Guide Popup */}
+            <AnimatePresence>
+              {showViewerGuide && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex items-center gap-4 px-5 py-3 rounded-2xl bg-neutral-900/90 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10"
+                >
+                  <div className="flex items-center gap-2">
+                    <ZoomIn size={16} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll to Zoom</span>
+                  </div>
+                  <div className="h-4 w-px bg-white/20 dark:bg-neutral-300" />
+                  <div className="flex items-center gap-2">
+                    <Move size={16} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan to Move</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Main Fully Uncropped Centered Design Layout */}
             <motion.div
@@ -1139,7 +1202,9 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
             </motion.div>
 
             {/* Bottom helper tag */}
-            <div className="absolute bottom-6 flex flex-col items-center justify-center text-center text-neutral-400 pointer-events-none drop-shadow-md">
+            <div className={`absolute bottom-6 flex flex-col items-center justify-center text-center text-neutral-400 pointer-events-none drop-shadow-md transition-opacity duration-300 ${
+              zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0 ? "opacity-0" : "opacity-100"
+            }`}>
               <p className="text-[10px] font-mono tracking-widest uppercase text-neutral-500">
                 {zoomScale > 1 ? "Drag to pan • Double-tap or Wheel to zoom" : "Click anywhere, or backdrop, to transition back"}
               </p>
@@ -1318,10 +1383,18 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
       <AnimatePresence>
         {showReadyToast && (
           <motion.div
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 200 }}
+            dragElastic={{ top: 0.1, bottom: 0.8 }}
+            onDragEnd={(event, info) => {
+              if (info.offset.y > 60) {
+                setShowReadyToast(false);
+              }
+            }}
             initial={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
             animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
             exit={{ opacity: 0, scale: 0.9, y: 30, x: "-50%" }}
-            className={`fixed bottom-24 left-1/2 z-[140] w-[90%] max-w-sm border rounded-2xl p-4.5 shadow-2xl flex items-center gap-3.5 backdrop-blur-xl transition-colors duration-300 ${
+            className={`fixed bottom-24 left-1/2 z-[140] w-[90%] max-w-sm border rounded-2xl p-4.5 shadow-2xl flex items-center gap-3.5 backdrop-blur-xl transition-colors duration-300 cursor-grab active:cursor-grabbing select-none ${
               theme === "dark"
                 ? "bg-surface-dark/95 border-emerald-500/30 text-white"
                 : "bg-white/95 border-emerald-500/25 text-[#171717]"
@@ -1351,6 +1424,6 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 };

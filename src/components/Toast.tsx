@@ -51,10 +51,19 @@ function ToastItem({ toast, removeToast }: { toast: ToastMessage, removeToast: (
 
   return (
     <motion.div
+      drag="x"
+      dragDirectionLock
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={{ left: 0.6, right: 0.6 }}
+      onDragEnd={(event, info) => {
+        if (Math.abs(info.offset.x) > 80) {
+          removeToast(toast.id);
+        }
+      }}
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-      className={`flex items-start gap-3 p-4 rounded-[16px] border shadow-lg backdrop-blur-md pointer-events-auto ${bgColors[toast.type]}`}
+      className={`flex items-start gap-3 p-4 rounded-[16px] border shadow-lg backdrop-blur-md pointer-events-auto cursor-grab active:cursor-grabbing select-none ${bgColors[toast.type]}`}
     >
       <div className="flex-1 text-[15px] font-sans font-medium pr-2 break-words overflow-hidden">
         {toast.message}

@@ -48,6 +48,8 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [pendingZip, setPendingZip] = useState<File | null>(null);
+  const [pendingManualFiles, setPendingManualFiles] = useState<File[] | null>(null);
+  const [pendingUrlUrls, setPendingUrlUrls] = useState<string[] | null>(null);
   const [importUrl, setImportUrl] = useState("");
   const sessionCloudinaryUrls = useRef<string[]>([]);
 
@@ -121,64 +123,11 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
     setUploading(true);
     try {
       const resolvedImageUrls = await extractImageUrlFromPage(importUrl.trim());
-      const firstImageUrl = resolvedImageUrls[0];
-      
-      let url = "";
-      let thumbnailUrl = "";
-      let uploadSuccess = false;
-
-      // Try to fetch direct image URLs as a Blob and upload as a File to bypass Cloudinary IP bans (like Behance's CDN)
-      if (firstImageUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) || firstImageUrl.includes('mir-s3-cdn-cf') || firstImageUrl.includes('pinimg.com/')) {
-        try {
-            const res = await fetch(firstImageUrl);
-            if (res.ok) {
-                const blob = await res.blob();
-                const file = new File([blob], "imported-image.jpg", { type: blob.type || 'image/jpeg' });
-                const uploaded = await cloudinaryService.uploadImage(file);
-                url = uploaded.url;
-                thumbnailUrl = uploaded.thumbnailUrl;
-                uploadSuccess = true;
-            }
-        } catch (e) {
-            console.warn("Failed to fetch image as blob, falling back to direct upload", e);
-        }
+      if (resolvedImageUrls.length > 1) {
+        setPendingUrlUrls(resolvedImageUrls);
+      } else {
+        await processUrlImport(resolvedImageUrls, true);
       }
-
-      // If blob fetch failed or it's a regular HTML URL (like a profile page), use uploadFromUrl
-      if (!uploadSuccess) {
-          const uploaded = await cloudinaryService.uploadFromUrl(firstImageUrl);
-          url = uploaded.url;
-          thumbnailUrl = uploaded.thumbnailUrl;
-      }
-
-      if (url) {
-        sessionCloudinaryUrls.current.push(url);
-      }
-
-      setEditingDraft({
-        id: `url_${user.id}_${Date.now()}`,
-        userId: user.id,
-        source: "url",
-        sourceId: importUrl.trim(),
-        title: "",
-        description: "",
-        imageUrl: url,
-        thumbnailUrl,
-        imageUrls: resolvedImageUrls.length > 1 ? resolvedImageUrls : [url],
-        category: null,
-        format: null,
-        styles: [],
-        tags: [],
-        status: "draft",
-        imported: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        publishedAt: null,
-        stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
-      });
-      setUploadMode("none");
-      setImportUrl("");
-      showToast("Image imported from URL.", "success");
     } catch (err: any) {
       showToast(err.message || "Failed to import image from URL.", "error");
     } finally {
@@ -186,55 +135,248 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
     }
   };
 
-  const handleManualUpload = async (files: FileList | File[]) => {
+  const processUrlImport = async (resolvedImageUrls: string[], importAsSingle: boolean) => {
+    setPendingUrlUrls(null);
     setUploading(true);
+    const sourceLink = importUrl.trim();
     try {
-      const uploadedUrls: string[] = [];
-      let primaryThumb = "";
-      const fileCount = files.length;
-      showToast(`Compressing and uploading ${fileCount} images...`, "info");
+      showToast(`Importing and processing ${resolvedImageUrls.length} images from URL...`, "info");
 
-      for (let i = 0; i < fileCount; i++) {
-        const file = files[i];
-        const compressed = await imageCompressionService.compressImage(file);
-        const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
-        if (url) {
-          uploadedUrls.push(url);
-          sessionCloudinaryUrls.current.push(url);
-          if (i === 0) {
-            primaryThumb = thumbnailUrl || url;
+      if (importAsSingle) {
+        let primaryUrl = "";
+        let primaryThumb = "";
+        const uploadedUrls: string[] = [];
+
+        for (let i = 0; i < resolvedImageUrls.length; i++) {
+          const currentUrl = resolvedImageUrls[i];
+          let url = "";
+          let thumbnailUrl = "";
+          let uploadSuccess = false;
+
+          if (currentUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) || currentUrl.includes('mir-s3-cdn-cf') || currentUrl.includes('pinimg.com/')) {
+            try {
+              const res = await fetch(currentUrl);
+              if (res.ok) {
+                const blob = await res.blob();
+                const file = new File([blob], `imported-image-${i}.jpg`, { type: blob.type || 'image/jpeg' });
+                const uploaded = await cloudinaryService.uploadImage(file);
+                url = uploaded.url;
+                thumbnailUrl = uploaded.thumbnailUrl;
+                uploadSuccess = true;
+              }
+            } catch (e) {
+              console.warn("Failed to fetch image as blob, falling back to direct upload", e);
+            }
+          }
+
+          if (!uploadSuccess) {
+            const uploaded = await cloudinaryService.uploadFromUrl(currentUrl);
+            url = uploaded.url;
+            thumbnailUrl = uploaded.thumbnailUrl;
+          }
+
+          if (url) {
+            uploadedUrls.push(url);
+            sessionCloudinaryUrls.current.push(url);
+            if (i === 0) {
+              primaryUrl = url;
+              primaryThumb = thumbnailUrl || url;
+            }
           }
         }
-      }
 
-      if (uploadedUrls.length === 0) {
-        showToast("No images uploaded successfully.", "error");
-        return;
-      }
+        if (uploadedUrls.length === 0) {
+          showToast("No images imported successfully.", "error");
+          return;
+        }
 
-      setEditingDraft({
-        id: `manual_${user.id}_${Date.now()}`,
-        userId: user.id,
-        source: "manual",
-        sourceId: null,
-        title: "",
-        description: "",
-        imageUrl: uploadedUrls[0],
-        thumbnailUrl: primaryThumb,
-        imageUrls: uploadedUrls,
-        category: null,
-        format: null,
-        styles: [],
-        tags: [],
-        status: "draft",
-        imported: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        publishedAt: null,
-        stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
-      });
-      setUploadMode("none");
-      showToast(`Uploaded ${uploadedUrls.length} images to local project draft.`, "success");
+        setEditingDraft({
+          id: `url_${user.id}_${Date.now()}`,
+          userId: user.id,
+          source: "url",
+          sourceId: sourceLink,
+          title: "",
+          description: "",
+          imageUrl: primaryUrl,
+          thumbnailUrl: primaryThumb,
+          imageUrls: uploadedUrls,
+          category: null,
+          format: null,
+          styles: [],
+          tags: [],
+          status: "draft",
+          imported: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          publishedAt: null,
+          stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
+        });
+        setUploadMode("none");
+        setImportUrl("");
+        showToast("Images imported from URL as one project.", "success");
+      } else {
+        // Create individual projects for each URL
+        for (let i = 0; i < resolvedImageUrls.length; i++) {
+          const currentUrl = resolvedImageUrls[i];
+          let url = "";
+          let thumbnailUrl = "";
+          let uploadSuccess = false;
+
+          if (currentUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) || currentUrl.includes('mir-s3-cdn-cf') || currentUrl.includes('pinimg.com/')) {
+            try {
+              const res = await fetch(currentUrl);
+              if (res.ok) {
+                const blob = await res.blob();
+                const file = new File([blob], `imported-image-${i}.jpg`, { type: blob.type || 'image/jpeg' });
+                const uploaded = await cloudinaryService.uploadImage(file);
+                url = uploaded.url;
+                thumbnailUrl = uploaded.thumbnailUrl;
+                uploadSuccess = true;
+              }
+            } catch (e) {
+              console.warn("Failed to fetch image as blob, falling back to direct upload", e);
+            }
+          }
+
+          if (!uploadSuccess) {
+            const uploaded = await cloudinaryService.uploadFromUrl(currentUrl);
+            url = uploaded.url;
+            thumbnailUrl = uploaded.thumbnailUrl;
+          }
+
+          if (url) {
+            const draftData: Design = {
+              id: `url_${user.id}_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+              userId: user.id,
+              source: "url",
+              sourceId: sourceLink,
+              title: `Imported Layout ${i + 1}`,
+              description: `Imported image ${i + 1} from link "${sourceLink}"`,
+              imageUrl: url,
+              thumbnailUrl: thumbnailUrl || url,
+              imageUrls: [url],
+              category: null,
+              format: null,
+              styles: [],
+              tags: [],
+              status: "draft",
+              imported: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              publishedAt: null,
+              stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
+            };
+            const created = await designService.createDesign(draftData);
+            addDraft(created);
+          }
+        }
+        setImportUrl("");
+        showToast(`Imported ${resolvedImageUrls.length} separate draft projects successfully!`, "success");
+        onBack();
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to import images from URL.", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleManualUpload = async (files: FileList | File[]) => {
+    const filesArray = Array.from(files);
+    if (filesArray.length > 1) {
+      setPendingManualFiles(filesArray);
+    } else {
+      await processManualUpload(filesArray, true);
+    }
+  };
+
+  const processManualUpload = async (files: File[] | FileList, importAsSingle: boolean) => {
+    setPendingManualFiles(null);
+    setUploading(true);
+    try {
+      const filesArray = Array.from(files);
+      const uploadedUrls: string[] = [];
+      let primaryThumb = "";
+      const fileCount = filesArray.length;
+      showToast(`Compressing and uploading ${fileCount} images...`, "info");
+
+      if (importAsSingle) {
+        for (let i = 0; i < fileCount; i++) {
+          const file = filesArray[i];
+          const compressed = await imageCompressionService.compressImage(file);
+          const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
+          if (url) {
+            uploadedUrls.push(url);
+            sessionCloudinaryUrls.current.push(url);
+            if (i === 0) {
+              primaryThumb = thumbnailUrl || url;
+            }
+          }
+        }
+
+        if (uploadedUrls.length === 0) {
+          showToast("No images uploaded successfully.", "error");
+          return;
+        }
+
+        setEditingDraft({
+          id: `manual_${user.id}_${Date.now()}`,
+          userId: user.id,
+          source: "manual",
+          sourceId: null,
+          title: "",
+          description: "",
+          imageUrl: uploadedUrls[0],
+          thumbnailUrl: primaryThumb,
+          imageUrls: uploadedUrls,
+          category: null,
+          format: null,
+          styles: [],
+          tags: [],
+          status: "draft",
+          imported: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          publishedAt: null,
+          stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
+        });
+        setUploadMode("none");
+        showToast(`Uploaded ${uploadedUrls.length} images to local project draft.`, "success");
+      } else {
+        // Upload each as its own draft
+        for (let i = 0; i < fileCount; i++) {
+          const file = filesArray[i];
+          const compressed = await imageCompressionService.compressImage(file);
+          const { url, thumbnailUrl } = await cloudinaryService.uploadImage(compressed);
+          if (url) {
+            const draftData: Design = {
+              id: `manual_${user.id}_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+              userId: user.id,
+              source: "manual",
+              sourceId: null,
+              title: file.name.split(".")[0] || `Upload ${i + 1}`,
+              description: `Manually uploaded image "${file.name}"`,
+              imageUrl: url,
+              thumbnailUrl: thumbnailUrl || url,
+              imageUrls: [url],
+              category: null,
+              format: null,
+              styles: [],
+              tags: [],
+              status: "draft",
+              imported: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              publishedAt: null,
+              stats: { likes: 0, dislikes: 0, saves: 0, score: 0 },
+            };
+            const created = await designService.createDesign(draftData);
+            addDraft(created);
+          }
+        }
+        showToast(`Uploaded ${fileCount} separate draft projects successfully!`, "success");
+        onBack();
+      }
     } catch (err: any) {
       showToast(err.message || "Failed to upload images.", "error");
     } finally {
@@ -477,6 +619,128 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
           </motion.div>
         </div>
       )}
+
+      {pendingManualFiles && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white dark:bg-[#1A1F2C] rounded-[24px] border border-[#ECECEC] dark:border-white/10 p-6 max-w-md w-full space-y-6 text-left shadow-2xl"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-full bg-accent/10 text-accent flex items-center justify-center">
+                <ImageIcon size={20} />
+              </div>
+              <h3 className="text-base font-space font-bold text-[#171717] dark:text-white">
+                Manual Upload Options
+              </h3>
+              <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+                You selected <span className="font-semibold text-accent">{pendingManualFiles.length} images</span>. How would you like to upload them?
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => processManualUpload(pendingManualFiles, true)}
+                className="flex flex-col items-start gap-1 p-4 rounded-[18px] border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:border-accent dark:hover:border-accent text-left transition-all cursor-pointer group w-full"
+              >
+                <span className="text-xs font-space font-bold text-[#171717] dark:text-white group-hover:text-accent">
+                  Single Combined Project (Carousel Layout)
+                </span>
+                <span className="text-[10px] text-[#555555] dark:text-[#A9A9A9] leading-snug">
+                  Combine all {pendingManualFiles.length} images into a single project containing multiple slides/frames.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => processManualUpload(pendingManualFiles, false)}
+                className="flex flex-col items-start gap-1 p-4 rounded-[18px] border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:border-accent dark:hover:border-accent text-left transition-all cursor-pointer group w-full"
+              >
+                <span className="text-xs font-space font-bold text-[#171717] dark:text-white group-hover:text-accent">
+                  Multiple Individual Projects (Separate Drafts)
+                </span>
+                <span className="text-[10px] text-[#555555] dark:text-[#A9A9A9] leading-snug">
+                  Upload each of the {pendingManualFiles.length} images as its own separate standalone draft project in your workspace.
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                onClick={() => setPendingManualFiles(null)}
+                variant="secondary"
+                className="h-10 text-xs px-4"
+              >
+                Cancel
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {pendingUrlUrls && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white dark:bg-[#1A1F2C] rounded-[24px] border border-[#ECECEC] dark:border-white/10 p-6 max-w-md w-full space-y-6 text-left shadow-2xl"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-full bg-accent/10 text-accent flex items-center justify-center">
+                <Link size={20} />
+              </div>
+              <h3 className="text-base font-space font-bold text-[#171717] dark:text-white">
+                URL Import Options
+              </h3>
+              <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+                We found <span className="font-semibold text-accent">{pendingUrlUrls.length} images</span> at the imported link. How would you like to import them?
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => processUrlImport(pendingUrlUrls, true)}
+                className="flex flex-col items-start gap-1 p-4 rounded-[18px] border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:border-accent dark:hover:border-accent text-left transition-all cursor-pointer group w-full"
+              >
+                <span className="text-xs font-space font-bold text-[#171717] dark:text-white group-hover:text-accent">
+                  Single Combined Project (Carousel Layout)
+                </span>
+                <span className="text-[10px] text-[#555555] dark:text-[#A9A9A9] leading-snug">
+                  Combine all {pendingUrlUrls.length} images into a single project containing multiple slides/frames.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => processUrlImport(pendingUrlUrls, false)}
+                className="flex flex-col items-start gap-1 p-4 rounded-[18px] border border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:border-accent dark:hover:border-accent text-left transition-all cursor-pointer group w-full"
+              >
+                <span className="text-xs font-space font-bold text-[#171717] dark:text-white group-hover:text-accent">
+                  Multiple Individual Projects (Separate Drafts)
+                </span>
+                <span className="text-[10px] text-[#555555] dark:text-[#A9A9A9] leading-snug">
+                  Create a separate standalone draft project in your workspace for each of the {pendingUrlUrls.length} images.
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                onClick={() => setPendingUrlUrls(null)}
+                variant="secondary"
+                className="h-10 text-xs px-4"
+              >
+                Cancel
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ECECEC] dark:border-white/10 pb-4">
         <div>
           <button 
@@ -599,7 +863,7 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
             animate={{ opacity: 1 }}
             className="w-full"
           >
-            <Card className="p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-accent/20 shadow-none">
+            <Card className="p-6 sm:p-8 text-center flex flex-col items-center justify-center border-dashed border-2 border-accent/20 shadow-none">
               <div className="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center mb-4">
                 <Link size={22} />
               </div>
@@ -607,20 +871,20 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
               <p className="text-xs text-[#555555] dark:text-[#D7D7D7] mt-1.5 mb-6 max-w-sm leading-relaxed">
                 Paste a project link or direct image URL from Pinterest, Behance, X, Instagram, or Artstation.
               </p>
-              <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full max-w-md px-1 sm:px-0">
                 <input
                   type="url"
                   placeholder="https://example.com/image.jpg"
                   value={importUrl}
                   onChange={(e) => setImportUrl(e.target.value)}
-                  className="w-full flex-1 h-12 sm:h-11 px-4 text-xs font-mono border border-[#ECECEC] dark:border-white/10 rounded-[18px] outline-none bg-white dark:bg-surface-dark text-[#171717] dark:text-white focus:border-accent"
+                  className="w-full sm:flex-1 h-13 sm:h-12 min-h-[52px] sm:min-h-[48px] px-5 text-sm font-sans border border-[#ECECEC] dark:border-white/10 rounded-[20px] outline-none bg-white dark:bg-surface-dark text-[#171717] dark:text-white focus:border-accent transition-all shadow-sm"
                 />
                 <Button
                   onClick={handleUrlImport}
                   loading={uploading}
                   disabled={!importUrl.trim()}
                   variant="primary"
-                  className="w-full sm:w-auto px-6 h-12 sm:h-11"
+                  className="w-full sm:w-auto px-6 h-13 sm:h-12 min-h-[52px] sm:min-h-[48px] rounded-[20px]"
                 >
                   Import
                 </Button>
@@ -833,34 +1097,36 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                             ? editingDraft.imageUrls
                             : [editingDraft.imageUrl]
                           ).length > 1) && (
-                            <Tooltip content="Delete Slide" theme={theme} position="top">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const currentUrls = editingDraft.imageUrls && editingDraft.imageUrls.length > 0
-                                    ? editingDraft.imageUrls
-                                    : [editingDraft.imageUrl];
-                                  const urlToDelete = currentUrls[index];
-                                  const updatedUrls = currentUrls.filter((_, i) => i !== index);
-                                  const newActiveIdx = Math.max(0, index - 1);
-                                  setEditingDraft({
-                                    ...editingDraft,
-                                    imageUrls: updatedUrls,
-                                    imageUrl: updatedUrls[0] || "",
-                                  });
-                                  setActiveImageIdx(newActiveIdx);
-                                  if (urlToDelete) {
-                                    sessionCloudinaryUrls.current = sessionCloudinaryUrls.current.filter(u => u !== urlToDelete);
-                                    import('../services/cloudinary.service').then(m => m.cloudinaryService.deleteImage(urlToDelete));
-                                  }
-                                  showToast("Photo removed.", "success");
-                                }}
-                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center shadow-md cursor-pointer z-10"
-                              >
-                                <X size={10} strokeWidth={3} />
-                              </button>
-                            </Tooltip>
+                            <div className="absolute -top-1.5 -right-1.5 z-30">
+                              <Tooltip content="Delete Slide" theme={theme} position="top">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const currentUrls = editingDraft.imageUrls && editingDraft.imageUrls.length > 0
+                                      ? editingDraft.imageUrls
+                                      : [editingDraft.imageUrl];
+                                    const urlToDelete = currentUrls[index];
+                                    const updatedUrls = currentUrls.filter((_, i) => i !== index);
+                                    const newActiveIdx = Math.max(0, index - 1);
+                                    setEditingDraft({
+                                      ...editingDraft,
+                                      imageUrls: updatedUrls,
+                                      imageUrl: updatedUrls[0] || "",
+                                    });
+                                    setActiveImageIdx(newActiveIdx);
+                                    if (urlToDelete) {
+                                      sessionCloudinaryUrls.current = sessionCloudinaryUrls.current.filter(u => u !== urlToDelete);
+                                      import('../services/cloudinary.service').then(m => m.cloudinaryService.deleteImage(urlToDelete));
+                                    }
+                                    showToast("Photo removed.", "success");
+                                  }}
+                                  className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center shadow-md cursor-pointer"
+                                >
+                                  <X size={10} strokeWidth={3} />
+                                </button>
+                              </Tooltip>
+                            </div>
                           )}
                         </div>
                       ))}

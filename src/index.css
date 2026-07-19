@@ -8,9 +8,9 @@
   --color-accent-hover: #BD0F3B;
   
   /* Dark Theme Semantic Colors */
-  --color-canvas-dark: #4A0517;
-  --color-surface-dark: #5A0A20;
-  --color-elevated-dark: #68102A;
+  --color-canvas-dark: #121212;
+  --color-surface-dark: #1E1E1E;
+  --color-elevated-dark: #2B2B2B;
   --color-text-primary-dark: #FFFFFF;
   --color-text-secondary-dark: #D7D7D7;
   --color-text-muted-dark: #A9A9A9;
@@ -102,7 +102,7 @@ input:-webkit-autofill:active{
 .dark input:-webkit-autofill:hover, 
 .dark input:-webkit-autofill:focus, 
 .dark input:-webkit-autofill:active{
-    -webkit-box-shadow: 0 0 0 30px #5A0A20 inset !important;
+    -webkit-box-shadow: 0 0 0 30px #1E1E1E inset !important;
     -webkit-text-fill-color: #FFFFFF !important;
 }
 

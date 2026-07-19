@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import { OnboardingFlow } from './OnboardingFlow';
 import { AuthView } from './AuthView';
 import { authService } from '../services/auth.service';
+import { userService } from '../services/user.service';
 import { useAuthStore } from '../stores/auth.store';
+import { useOnboardingStore } from '../stores/onboarding.store';
 import { useToastStore } from '../stores/toast.store';
 import { Shield, X } from 'lucide-react';
 import { Button } from './Button';
@@ -43,8 +45,78 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
   installApp,
   children
 }) => {
-  const { setError, setFirebaseUser, setLoading } = useAuthStore();
+  const { firebaseUser, setUser, setOnboardingRequired, setError, setFirebaseUser, setLoading } = useAuthStore();
   const { showToast } = useToastStore();
+
+  const handleCompleteOnboardingSync = async () => {
+    if (!firebaseUser) return;
+    try {
+      setLoading(true);
+      const oStore = useOnboardingStore.getState();
+      const cleanUsername = (
+        firebaseUser.displayName ||
+        firebaseUser.email?.split("@")[0] ||
+        "designer"
+      )
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "")
+        .slice(0, 25);
+
+      // Ensure unique username
+      let usernameToCheck = cleanUsername;
+      const isTaken = await userService.isUsernameTaken(usernameToCheck);
+      if (isTaken) {
+        usernameToCheck = `${cleanUsername}_${Math.floor(100 + Math.random() * 900)}`;
+      }
+
+      const newProfile = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email || "",
+        username: usernameToCheck,
+        bio: "",
+        avatarUrl: firebaseUser.photoURL || "",
+        role: oStore.role || "Brand Designer",
+        inspirationStyles: oStore.inspirationStyles || [],
+        preferredFormats: oStore.preferredFormats || [],
+        goals: oStore.goals || [],
+        discoverySource: oStore.discoverySource || "Google Search",
+        onboardingCompleted: true,
+        profileCompleted: false,
+        portfolioUrl: null,
+        emailVerified: firebaseUser?.emailVerified || false,
+        integrations: {},
+        stats: {
+          uploadsCount: 0,
+          draftCount: 0,
+          publishedCount: 0
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      await userService.createUserProfile(newProfile);
+
+      setUser(newProfile);
+      setOnboardingRequired(false);
+      oStore.clearOnboarding();
+
+      const profileToSave = {
+        username: newProfile.username,
+        email: newProfile.email,
+        avatarUrl: newProfile.avatarUrl,
+        id: newProfile.id,
+        providerId: firebaseUser.providerData[0]?.providerId || "password",
+      };
+      localStorage.setItem(
+        "dzinr_last_user",
+        JSON.stringify(profileToSave),
+      );
+    } catch (err) {
+      console.error("Failed to complete onboarding sync:", err);
+      showToast("Could not save your preferences. Please try again.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const [showAuthForm, setShowAuthForm] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
@@ -138,6 +210,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
                 deferredPrompt={deferredPrompt}
                 isPwaInstalled={isPwaInstalled}
                 onInstallPwa={installApp}
+                firebaseUser={firebaseUser}
                 onContinueAs={async () => {
                   if (lastUser?.providerId === 'google.com') {
                     await handleGoogleSignIn();
@@ -151,9 +224,11 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
                   setIsSignUp(false);
                   setShowAuthForm(true);
                 }}
-                onSelectAuth={(method) => {
-                  if (method === 'google') {
-                    handleGoogleSignIn();
+                onSelectAuth={async (method) => {
+                  if (firebaseUser) {
+                    await handleCompleteOnboardingSync();
+                  } else if (method === 'google') {
+                    await handleGoogleSignIn();
                   } else {
                     setIsSignUp(true);
                     setShowAuthForm(true);

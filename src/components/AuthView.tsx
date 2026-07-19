@@ -121,8 +121,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         </div>
 
         {/* MASTER ULTRA-LUXE GRADIENT MASKS */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#fcf5e2] via-[#fcf5e2]/20 to-[#fcf5e2] dark:from-[#4A0517] dark:via-[#4A0517]/20 dark:to-[#4A0517] z-10 pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,#fcf5e2_100%)] dark:bg-[radial-gradient(circle_at_center,transparent_45%,#4A0517_100%)] z-10 pointer-events-none opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#f5f5f5] via-[#f5f5f5]/20 to-[#f5f5f5] dark:from-[#121212] dark:via-[#121212]/20 dark:to-[#121212] z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_45%,#f5f5f5_100%)] dark:bg-[radial-gradient(circle_at_center,transparent_45%,#121212_100%)] z-10 pointer-events-none opacity-80" />
       </div>
 
       {/* PRISTINE FOREGROUND LAYER - COMPLETELY CARDLESS / BOXLESS */}
@@ -193,7 +193,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     }
                   }}
                   disabled={actionLoading}
-                  className="bg-[#fcf5e2]/80 dark:bg-[#4A0517]/80 backdrop-blur-sm"
+                  className="bg-[#f5f5f5]/80 dark:bg-[#121212]/80 backdrop-blur-sm"
                   autoFocus
                 />
               ) : (
@@ -241,7 +241,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   disabled={actionLoading}
                   onPaste={(e) => e.preventDefault()}
                   error={password && password.length > 0 && password.length < 6 ? "Password must be at least 6 characters" : undefined}
-                  className="bg-[#fcf5e2]/80 dark:bg-[#4A0517]/80 backdrop-blur-sm"
+                  className="bg-[#f5f5f5]/80 dark:bg-[#121212]/80 backdrop-blur-sm"
                   autoFocus
                 />
               ) : (
@@ -275,7 +275,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     disabled={actionLoading}
                     onPaste={(e) => e.preventDefault()}
                     error={confirmPassword && confirmPassword.length > 0 && password !== confirmPassword ? "Passwords do not match" : undefined}
-                    className="bg-[#fcf5e2]/80 dark:bg-[#4A0517]/80 backdrop-blur-sm"
+                    className="bg-[#f5f5f5]/80 dark:bg-[#121212]/80 backdrop-blur-sm"
                     autoFocus
                   />
                 ) : (

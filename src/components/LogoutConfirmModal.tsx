@@ -38,11 +38,19 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
           {/* Modal Box */}
           <motion.div
             key="logout-modal"
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 300 }}
+            dragElastic={{ top: 0.1, bottom: 0.8 }}
+            onDragEnd={(event, info) => {
+              if (info.offset.y > 80) {
+                onCancel();
+              }
+            }}
             initial={{ opacity: 0, scale: 0.98, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 15 }}
             transition={{ type: "spring", damping: 28, stiffness: 350 }}
-            className="relative z-10 w-full max-w-sm p-6 sm:p-8 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-2xl text-left"
+            className="relative z-10 w-full max-w-sm p-6 sm:p-8 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-2xl text-left cursor-grab active:cursor-grabbing select-none"
           >
             <div className="flex flex-col items-center text-center gap-5">
               {/* Visual Icon Alert Accent */}
