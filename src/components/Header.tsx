@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
       transition={{ type: "spring", stiffness: 350, damping: 30 }}
       className={`fixed top-0 left-0 z-[120] flex border-divider-light dark:border-divider-dark backdrop-blur-md bg-white/70 dark:bg-[#4A0517]/70 ${
         isAuthenticated 
-          ? "hidden md:flex flex-col h-screen border-r py-8 justify-between px-4" 
+          ? "hidden md:flex flex-col h-screen border-r py-8 justify-between px-4 overflow-hidden" 
           : "hidden md:flex w-full px-8 py-5 border-b justify-between items-center"
       }`}
     >
@@ -61,6 +61,11 @@ export const Header: React.FC<HeaderProps> = ({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
+              transition={{
+                duration: 0.15,
+                ease: "easeOut",
+                delay: isExpanded ? 0.12 : 0
+              }}
               className="h-5 flex items-center shrink-0"
             >
               <img
@@ -101,9 +106,14 @@ export const Header: React.FC<HeaderProps> = ({
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span
-                      initial={{ opacity: 0, x: -5 }}
+                      initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -5 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{
+                        duration: 0.15,
+                        ease: "easeOut",
+                        delay: isExpanded ? 0.12 : 0
+                      }}
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
                       Discovery Feed
@@ -139,9 +149,14 @@ export const Header: React.FC<HeaderProps> = ({
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span
-                      initial={{ opacity: 0, x: -5 }}
+                      initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -5 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{
+                        duration: 0.15,
+                        ease: "easeOut",
+                        delay: isExpanded ? 0.12 : 0
+                      }}
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
                       Saved Vault
@@ -177,9 +192,14 @@ export const Header: React.FC<HeaderProps> = ({
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span
-                      initial={{ opacity: 0, x: -5 }}
+                      initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -5 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{
+                        duration: 0.15,
+                        ease: "easeOut",
+                        delay: isExpanded ? 0.12 : 0
+                      }}
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
                       My Profile
@@ -215,9 +235,14 @@ export const Header: React.FC<HeaderProps> = ({
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.span
-                      initial={{ opacity: 0, x: -5 }}
+                      initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -5 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{
+                        duration: 0.15,
+                        ease: "easeOut",
+                        delay: isExpanded ? 0.12 : 0
+                      }}
                       className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
                     >
                       Projects
@@ -248,10 +273,24 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="shrink-0">
               {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </div>
-            {isAuthenticated && isExpanded && (
-              <span className="text-sm font-space font-medium tracking-wide whitespace-nowrap">
-                {theme === "dark" ? "Light Mode" : "Dark Mode"}
-              </span>
+            {isAuthenticated && (
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{
+                      duration: 0.15,
+                      ease: "easeOut",
+                      delay: isExpanded ? 0.12 : 0
+                    }}
+                    className="text-sm font-space font-medium tracking-wide whitespace-nowrap"
+                  >
+                    {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             )}
           </div>
         </button>
@@ -265,11 +304,23 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <div className="flex items-center gap-3.5 px-3.5">
               <LogOut size={20} className="shrink-0" />
-              {isExpanded && (
-                <span className="text-sm font-space font-medium tracking-wide whitespace-nowrap text-accent dark:text-neutral-200 font-semibold">
-                  Log Out
-                </span>
-              )}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{
+                      duration: 0.15,
+                      ease: "easeOut",
+                      delay: isExpanded ? 0.12 : 0
+                    }}
+                    className="text-sm font-space font-medium tracking-wide whitespace-nowrap text-accent dark:text-neutral-200 font-semibold"
+                  >
+                    Log Out
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
           </button>
         )}

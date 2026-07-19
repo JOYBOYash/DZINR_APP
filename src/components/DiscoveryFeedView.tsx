@@ -75,11 +75,11 @@ const MarqueeIconRow: React.FC<MarqueeIconRowProps> = ({
   
   const iconColor = opacityClass || (theme === "dark" 
     ? "text-white/[0.07]" 
-    : "text-neutral-900/[0.045]");
+    : "text-neutral-900/[0.12]");
 
   const accentColor = accentOpacityClass || (theme === "dark"
     ? "text-[#C90023]/[0.16]"
-    : "text-[#C90023]/[0.11]");
+    : "text-[#C90023]/[0.22]");
 
   return (
     <div className="flex whitespace-nowrap w-full overflow-hidden select-none pointer-events-none my-1.5 md:my-2">
