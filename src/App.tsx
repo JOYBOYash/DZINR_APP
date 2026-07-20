@@ -103,6 +103,67 @@ export default function App() {
     string | null
   >(null);
 
+  // Double-back-to-exit state
+  const [lastBackPress, setLastBackPress] = useState<number>(0);
+
+  // Synchronize browser history and manage mobile back gestures
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      // 1. Intercept back button if any lightbox or modal is currently open, and close it first
+      const openOverlayCloseBtn = 
+        document.getElementById("lightbox-close-button") || 
+        document.querySelector("[id*='lightbox-close']") || 
+        document.querySelector("[id*='modal-close']") || 
+        document.querySelector(".modal-backdrop button");
+        
+      if (openOverlayCloseBtn) {
+        (openOverlayCloseBtn as HTMLElement).click();
+        // Restore history state so we stay on the current view
+        window.history.pushState({ page: currentPage }, "");
+        return;
+      }
+
+      const state = e.state;
+      if (state && state.page) {
+        // Navigate within the app
+        setCurrentPage(state.page);
+      } else {
+        // No state or reached beginning of history stack
+        const now = Date.now();
+        if (currentPage === "feed") {
+          if (now - lastBackPress < 2000) {
+            // Let them exit (do not push state, let standard popstate close/exit)
+          } else {
+            // Intercept first press, show alert, restore state
+            setLastBackPress(now);
+            useToastStore.getState().showToast("Press back again to exit", "info");
+            window.history.pushState({ page: "feed" }, "");
+          }
+        } else {
+          // Non-feed: go back to feed instead of exiting
+          setCurrentPage("feed");
+          window.history.pushState({ page: "feed" }, "");
+        }
+      }
+    };
+
+    // Set initial state if empty
+    if (!window.history.state) {
+      window.history.replaceState({ page: currentPage }, "");
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [currentPage, lastBackPress]);
+
+  useEffect(() => {
+    if (window.history.state?.page !== currentPage) {
+      window.history.pushState({ page: currentPage }, "");
+    }
+  }, [currentPage]);
+
   // Splash Screen Timeout (lasting 6.5 seconds with animation)
   useEffect(() => {
     const splashTimer = setTimeout(() => {
@@ -212,6 +273,23 @@ export default function App() {
             );
             setLastUser(profileToSave);
           } else {
+            // Check if they were attempting a standard login with an unregistered account
+            const authAction = sessionStorage.getItem("dzinr_auth_action");
+            if (authAction === "login") {
+              sessionStorage.removeItem("dzinr_auth_action");
+              await authService.logout();
+              setUser(null);
+              setOnboardingRequired(false);
+              setFirebaseUser(null);
+              reset();
+              useToastStore.getState().showToast(
+                "You haven't registered yet. Please sign up first!",
+                "error"
+              );
+              setLoading(false);
+              return;
+            }
+
             // Profile does not exist yet. Check if they completed onboarding first
             const oStore = useOnboardingStore.getState();
             if (oStore.role) {
@@ -475,6 +553,10 @@ export default function App() {
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
           theme={theme}
+          onCreateNew={() => {
+            setEditingProjectId(null);
+            setCurrentPage("project-editor");
+          }}
         />
       )}
 

@@ -35,6 +35,8 @@ import {
   TrendingUp,
   Sparkles,
   Award,
+  ArrowLeft,
+  Smile,
 } from "lucide-react";
 import { UserProfile } from "../types";
 import { Button } from "./Button";
@@ -146,7 +148,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   }, [completionPercentage]);
 
+  // Offboarding steps
+  const [offboardingStep, setOffboardingStep] = useState<number>(1);
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+
   const handleDeleteAccount = () => {
+    setOffboardingStep(1);
+    setShowExitConfirm(false);
     setShowDeleteModal(true);
   };
 
@@ -163,6 +171,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       // 1. Delete Firestore profile and add to deleted collection with feedback survey answers
       await userService.deleteAccount(user.id, user.email || "", surveyFeedback);
       
+      // Go to final step 7! Do not logout yet, we let them click "Bye" on Step 7
+      setOffboardingStep(7);
+    } catch (err: any) {
+      console.error("Failed to delete account:", err);
+      showToast("Could not delete account. Please try again.", "error");
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleFinalExit = async () => {
+    setIsDeletingAccount(true);
+    try {
       // Clear local storage for the deleted session profile
       localStorage.clear();
       sessionStorage.clear();
@@ -186,13 +207,46 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       await authService.logout();
       useAuthStore.getState().reset();
       setShowDeleteModal(false);
-      showToast("Your account and curated data have been permanently deleted. We're sad to see you go!", "success");
-    } catch (err: any) {
-      console.error("Failed to delete account:", err);
-      showToast("Could not delete account. Please try again.", "error");
+      showToast("Your account has been permanently deleted. We'll miss you!", "info");
+    } catch (err) {
+      console.error("Failed final exit:", err);
     } finally {
       setIsDeletingAccount(false);
     }
+  };
+
+  const handleModalCloseAttempt = () => {
+    if (offboardingStep === 7 || isDeletingAccount) {
+      setShowDeleteModal(false);
+      setOffboardingStep(1);
+      return;
+    }
+    setShowExitConfirm(true);
+  };
+
+  const handleNoLetMeStay = async () => {
+    try {
+      const { collection, doc, setDoc } = await import("firebase/firestore");
+      const { db } = await import("../services/firebase");
+      
+      // Save support request in Firestore so we can resolve the user's issue in 48 hours
+      const supportRef = doc(collection(db, 'support_requests'));
+      await setDoc(supportRef, {
+        userId: user.id,
+        email: user.email || "anonymous@dzinr.com",
+        reasons: deleteReasons.map(r => r === "Other" ? `Other: ${deleteCustomReason}` : r),
+        improvementFeedback: deleteImprovementFeedback,
+        allowOutreach,
+        outreachEmail: allowOutreach ? outreachEmail : "",
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn("Could not save support request document:", e);
+    }
+    
+    setShowDeleteModal(false);
+    showToast("Awesome! We're on it. Your feedback has been sent, and we will contact you within 48 hours.", "success");
   };
 
   const handleCheckVerification = async () => {
@@ -797,165 +851,440 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <Modal
         id="account-deletion-survey-modal"
         show={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Delete Your Account Permanently"
+        onClose={handleModalCloseAttempt}
+        title={
+          showExitConfirm
+            ? "Exit Deletion Survey?"
+            : offboardingStep === 1
+            ? "We're broken to see you go"
+            : offboardingStep === 2
+            ? "Why are you leaving?"
+            : offboardingStep === 3
+            ? "We want to listen"
+            : offboardingStep === 4
+            ? "We'll be working on it"
+            : offboardingStep === 5
+            ? "Is it necessary to leave?"
+            : offboardingStep === 6
+            ? "Are you absolutely sure?"
+            : "Farewell Curator"
+        }
         size="md"
       >
-        <div className="space-y-6 text-left">
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-[16px] flex items-start gap-3">
-            <AlertTriangle className="text-[#ff2d51] shrink-0 mt-0.5" size={18} />
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#ff2d51] font-space">
-                Wiping curated assets
-              </h4>
-              <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
-                This will permanently delete your curated feed presets, uploaded mockup designs, portfolio links, and feedback scores. This action cannot be undone.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#171717] dark:text-[#A9A9A9] block">
-              Why are you leaving? <span className="text-accent">*</span>
-            </label>
-            <div className="grid grid-cols-1 gap-2">
-              {[
-                { id: "Confusing", label: "Confusing / hard to navigate" },
-                { id: "Missing", label: "Missing design formats/features I need" },
-                { id: "Community", label: "Not enough active community curators" },
-                { id: "Bugs", label: "Buggy or slow performance" },
-                { id: "Other", label: "Other reason..." },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    setDeleteReasons((prev) => 
-                      prev.includes(opt.id) ? prev.filter((id) => id !== opt.id) : [...prev, opt.id]
-                    );
-                  }}
-                  className={`w-full text-left p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all duration-150 cursor-pointer ${
-                    deleteReasons.includes(opt.id)
-                      ? theme === "dark"
-                        ? "border-white bg-white text-[#121212]"
-                        : "border-accent bg-accent/5 text-accent"
-                      : theme === "dark"
-                        ? "border-white/10 hover:border-white/30 bg-white/2 text-[#D7D7D7]"
-                        : "border-neutral-200 hover:border-accent/40 bg-white text-[#171717]"
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  {deleteReasons.includes(opt.id) && (
-                    <CheckCircle2
-                      size={14}
-                      className={theme === "dark" ? "text-[#121212]" : "text-accent"}
+        <motion.div 
+          layout="size" 
+          transition={{ duration: 0.22, ease: "easeInOut" }}
+          className="space-y-6 text-left relative flex flex-col justify-between overflow-hidden"
+        >
+          <AnimatePresence mode="wait">
+            {showExitConfirm ? (
+              <motion.div
+                key="exit-confirmation-step"
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.22, ease: "easeInOut" }}
+                className="space-y-6 flex-grow text-center py-4 w-full"
+              >
+                <div className="w-12 h-12 bg-accent/10 text-accent rounded-full flex items-center justify-center mx-auto">
+                  <X size={20} className="stroke-[2.5]" />
+                </div>
+                <div className="space-y-1.5">
+                  <h4 className="text-sm font-space font-bold text-[#171717] dark:text-white uppercase tracking-wider">
+                    Close Deletion Wizard?
+                  </h4>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto leading-relaxed font-sans">
+                    Your current progress in the offboarding survey will be lost.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 pt-4">
+                  <Button
+                    id="exit-confirm-keep-going"
+                    variant="secondary"
+                    onClick={() => setShowExitConfirm(false)}
+                    className="w-full py-3 text-xs font-semibold rounded-xl"
+                  >
+                    No, Keep Going
+                  </Button>
+                  <Button
+                    id="exit-confirm-close"
+                    onClick={() => {
+                      setShowExitConfirm(false);
+                      setShowDeleteModal(false);
+                      setOffboardingStep(1);
+                    }}
+                    className="w-full py-3 bg-accent text-white text-xs font-semibold rounded-xl"
+                  >
+                    Yes, Exit Survey
+                  </Button>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`step-${offboardingStep}`}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.22, ease: "easeInOut" }}
+                className="space-y-6 flex-grow w-full"
+              >
+                {/* STEP 1: WELCOME & GRAPHIC */}
+            {offboardingStep === 1 && (
+              <div className="space-y-6 text-center py-4 animate-fadeIn">
+                <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
+                  <div className="absolute inset-0 bg-accent/5 rounded-full border border-accent/10 animate-pulse scale-110" />
+                  <div className="absolute inset-2 bg-accent/5 rounded-full border border-accent/10 animate-ping opacity-20" />
+                  <div className="w-20 h-20 rounded-full bg-accent flex items-center justify-center p-4 shadow-xl shadow-accent/20 hover:scale-105 transition-all duration-300 relative z-10">
+                    <img
+                      src="/logo-and-loader.svg"
+                      alt="Dzinr"
+                      className="w-full h-full object-contain animate-pulse"
                     />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {deleteReasons.includes("Other") && (
-            <div className="space-y-2 animate-fadeIn">
-              <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#555555] dark:text-[#A9A9A9] block">
-                Please specify <span className="text-accent">*</span>
-              </label>
-              <input
-                type="text"
-                value={deleteCustomReason}
-                onChange={(e) => setDeleteCustomReason(e.target.value)}
-                placeholder="Help us understand your reasons..."
-                className={`w-full text-xs rounded-xl px-4 py-3 border focus:outline-none ${
-                  theme === "dark"
-                    ? "bg-white/2 text-white border-white/10 focus:border-white"
-                    : "bg-neutral-100 text-[#171717] border-neutral-200 focus:border-accent"
-                }`}
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#171717] dark:text-[#A9A9A9] block">
-              What is one thing we could fix or improve?
-            </label>
-            <textarea
-              value={deleteImprovementFeedback}
-              onChange={(e) => setDeleteImprovementFeedback(e.target.value)}
-              placeholder="Tell us what would have made you stay..."
-              rows={3}
-              className={`w-full text-xs rounded-xl px-4 py-3 border focus:outline-none resize-none ${
-                theme === "dark"
-                  ? "bg-white/2 text-white border-white/10 focus:border-white"
-                  : "bg-neutral-100 text-[#171717] border-neutral-200 focus:border-accent"
-              }`}
-            />
-          </div>
-
-          <div className="space-y-3 p-4 bg-neutral-50 dark:bg-white/2 rounded-xl border border-neutral-200/50 dark:border-white/5">
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allowOutreach}
-                onChange={(e) => setAllowOutreach(e.target.checked)}
-                className={`rounded border-neutral-300 text-accent focus:ring-accent ${
-                  theme === "dark" ? "accent-white focus:ring-white" : "accent-accent focus:ring-accent"
-                }`}
-              />
-              <span className="text-xs font-semibold text-[#171717] dark:text-white select-none">
-                Can we reach out to you later if we fix these or launch new features?
-              </span>
-            </label>
-
-            {allowOutreach && (
-              <div className="space-y-1.5 pt-1.5 pl-6 animate-fadeIn">
-                <span className="text-[10px] font-mono font-semibold text-[#555555] dark:text-[#A9A9A9] block uppercase tracking-wider">
-                  Contact Email
-                </span>
-                <input
-                  type="email"
-                  value={outreachEmail}
-                  onChange={(e) => setOutreachEmail(e.target.value)}
-                  placeholder="name@domain.com"
-                  className={`w-full max-w-sm text-xs rounded-lg px-3 py-2 border focus:outline-none ${
-                    theme === "dark"
-                      ? "bg-black/10 text-white border-white/10 focus:border-white"
-                      : "bg-neutral-100/50 text-[#171717] border-neutral-200 focus:border-accent"
-                  }`}
-                />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-[#555555] dark:text-[#A9A9A9] leading-relaxed max-w-sm mx-auto">
+                    dzInr is a curated network of elite designers and style curators. Your portfolio contributions and active feedback help sustain our collective.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 pt-4">
+                  <Button
+                    id="offboard-go-to-reasons"
+                    onClick={() => setOffboardingStep(2)}
+                    className="w-full py-3.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl"
+                  >
+                    I have to go
+                  </Button>
+                  <Button
+                    id="offboard-cancel-stay"
+                    variant="secondary"
+                    onClick={() => setShowDeleteModal(false)}
+                    className="w-full py-3.5 border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-white font-medium rounded-xl"
+                  >
+                    Nevermind, I'll stay
+                  </Button>
+                </div>
               </div>
             )}
-          </div>
 
-          <div className="flex flex-col gap-2 pt-2">
-            <Button
-              id="confirm-delete-account-button"
-              type="button"
-              onClick={handleConfirmDeleteAccount}
-              disabled={isDeletingAccount || deleteReasons.length === 0 || (deleteReasons.includes("Other") && !deleteCustomReason.trim())}
-              className="w-full py-3 bg-[#ff2d51] hover:bg-[#ff2d51]/90 text-white border-transparent"
-            >
-              {isDeletingAccount ? (
-                <>
-                  <Loader2 size={14} className="animate-spin mr-1.5" />
-                  <span>Deleting Curator Profile...</span>
-                </>
-              ) : (
-                <span>Confirm Permanent Deletion</span>
-              )}
-            </Button>
-            <Button
-              id="cancel-delete-account-button"
-              type="button"
-              variant="secondary"
-              onClick={() => setShowDeleteModal(false)}
-              disabled={isDeletingAccount}
-              className="w-full py-3 border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 text-[#171717] dark:text-white"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
+            {/* STEP 2: REASONS SELECTION */}
+            {offboardingStep === 2 && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-2 pr-1">
+                  {[
+                    { id: "Confusing", label: "Confusing / hard to navigate" },
+                    { id: "Missing", label: "Missing design formats/features I need" },
+                    { id: "Community", label: "Not enough active community curators" },
+                    { id: "Bugs", label: "Buggy or slow performance" },
+                    { id: "Other", label: "Other reason..." },
+                  ].map((opt) => {
+                    const isSelected = deleteReasons.includes(opt.id);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setDeleteReasons((prev) => 
+                            prev.includes(opt.id) ? prev.filter((id) => id !== opt.id) : [...prev, opt.id]
+                          );
+                        }}
+                        className={`w-full text-left p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? theme === "dark"
+                              ? "border-white bg-white text-[#121212]"
+                              : "border-accent bg-accent/5 text-accent"
+                            : theme === "dark"
+                              ? "border-white/10 hover:border-white/30 bg-white/2 text-[#D7D7D7]"
+                              : "border-neutral-200 hover:border-accent/40 bg-white text-[#171717]"
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {isSelected && (
+                          <CheckCircle2
+                            size={14}
+                            className={theme === "dark" ? "text-[#121212]" : "text-accent"}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {deleteReasons.includes("Other") && (
+                  <div className="space-y-2 animate-fadeIn">
+                    <input
+                      type="text"
+                      value={deleteCustomReason}
+                      onChange={(e) => setDeleteCustomReason(e.target.value)}
+                      placeholder="Help us understand your reasons..."
+                      className={`w-full text-xs rounded-xl px-4 py-3 border focus:outline-none ${
+                        theme === "dark"
+                          ? "bg-white/2 text-white border-white/10 focus:border-white"
+                          : "bg-neutral-100 text-[#171717] border-neutral-200 focus:border-accent"
+                      }`}
+                    />
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    id="offboard-reasons-back"
+                    variant="secondary"
+                    onClick={() => setOffboardingStep(1)}
+                    className="w-1/3 py-3 flex items-center justify-center gap-1.5"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Back</span>
+                  </Button>
+                  <Button
+                    id="offboard-reasons-continue"
+                    onClick={() => setOffboardingStep(3)}
+                    disabled={deleteReasons.length === 0 || (deleteReasons.includes("Other") && !deleteCustomReason.trim())}
+                    className="w-2/3 py-3 bg-accent text-white font-semibold"
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: THE EMOTIONAL QUESTION */}
+            {offboardingStep === 3 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    What is the one thing we could fix in our app to keep you inside? *
+                  </p>
+                </div>
+
+                <textarea
+                  value={deleteImprovementFeedback}
+                  onChange={(e) => setDeleteImprovementFeedback(e.target.value)}
+                  placeholder="Type your response here (at least 5 characters)..."
+                  rows={4}
+                  className={`w-full text-xs rounded-xl px-4 py-3.5 border focus:outline-none resize-none ${
+                    theme === "dark"
+                      ? "bg-white/2 text-white border-white/10 focus:border-white"
+                      : "bg-neutral-100 text-[#171717] border-neutral-200 focus:border-accent"
+                  }`}
+                />
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    id="offboard-improvement-back"
+                    variant="secondary"
+                    onClick={() => setOffboardingStep(2)}
+                    className="w-1/3 py-3 flex items-center justify-center gap-1.5"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Back</span>
+                  </Button>
+                  <Button
+                    id="offboard-improvement-continue"
+                    onClick={() => setOffboardingStep(4)}
+                    disabled={deleteImprovementFeedback.trim().length < 5}
+                    className="w-2/3 py-3 bg-accent text-white font-semibold"
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: WE'LL WORK ON IT & OUTREACH */}
+            {offboardingStep === 4 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <p className="text-xs text-neutral-500 leading-relaxed">
+                    We are deeply committed to resolving the friction you experienced. Can we reach out to you later if we address your feedback or roll out major updates?
+                  </p>
+                </div>
+
+                <div className="p-4 bg-neutral-50 dark:bg-white/2 rounded-xl border border-neutral-200/50 dark:border-white/5">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allowOutreach}
+                      onChange={(e) => setAllowOutreach(e.target.checked)}
+                      className="rounded border-neutral-300 text-accent focus:ring-accent accent-accent"
+                    />
+                    <span className="text-xs font-semibold text-[#171717] dark:text-white select-none">
+                      Can we reach out to you later?
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    id="offboard-outreach-back"
+                    variant="secondary"
+                    onClick={() => setOffboardingStep(3)}
+                    className="w-1/3 py-3 flex items-center justify-center gap-1.5"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Back</span>
+                  </Button>
+                  <Button
+                    id="offboard-outreach-continue"
+                    onClick={() => setOffboardingStep(5)}
+                    className="w-2/3 py-3 bg-accent text-white font-semibold"
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 5: CHOICE BETWEEN FINAL GOODBYE & EMOTIONAL CONNECT */}
+            {offboardingStep === 5 && (
+              <div className="space-y-6 animate-fadeIn text-center py-2">
+                <div className="space-y-2">
+                  <p className="text-xs text-[#555555] dark:text-[#A9A9A9] leading-relaxed max-w-sm mx-auto">
+                    If you choose to stay, we promise to prioritize your feedback and resolve your issues within 48 hours. You can continue using our app and keep all presets.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-4">
+                  <Button
+                    id="offboard-stay-resolve"
+                    onClick={handleNoLetMeStay}
+                    className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#121212] font-semibold rounded-xl"
+                  >
+                    No, let me stay (Resolve in 48hrs)
+                  </Button>
+                  <Button
+                    id="offboard-final-goodbye"
+                    onClick={() => setOffboardingStep(6)}
+                    className="w-full py-3.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl"
+                  >
+                    Final Goodbye
+                  </Button>
+                  <Button
+                    id="offboard-choice-back"
+                    variant="secondary"
+                    onClick={() => setOffboardingStep(4)}
+                    className="w-full py-3.5 border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-white"
+                  >
+                    Back
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 6: PERMANENT DELETION WARNING */}
+            {offboardingStep === 6 && (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="p-4 bg-[#C90023]/5 border border-[#C90023]/10 rounded-[16px] flex items-start gap-3">
+                  <AlertTriangle className="text-accent shrink-0 mt-0.5" size={18} />
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-accent font-space">
+                      Curated Assets Wiping
+                    </h4>
+                    <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+                      By continuing, your curated presets, feed settings, scores, and design mockups will be completely wiped from the database. This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-center py-1">
+                  <p className="text-xs text-neutral-500">
+                    Are you absolutely sure you want to permanently delete your account?
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <Button
+                    id="confirm-delete-account-button"
+                    type="button"
+                    onClick={handleConfirmDeleteAccount}
+                    disabled={isDeletingAccount}
+                    className="w-full py-3.5 bg-accent hover:bg-accent/90 text-white font-semibold border-transparent rounded-xl"
+                  >
+                    {isDeletingAccount ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Deleting Your Account Data...</span>
+                      </span>
+                    ) : (
+                      <span>Please do</span>
+                    )}
+                  </Button>
+                  <Button
+                    id="cancel-delete-account-button"
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setShowDeleteModal(false)}
+                    disabled={isDeletingAccount}
+                    className="w-full py-3.5 border-neutral-200 dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 text-[#171717] dark:text-white rounded-xl"
+                  >
+                    Nevermind, keep my profile
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setOffboardingStep(5)}
+                    disabled={isDeletingAccount}
+                    className="text-xs text-neutral-400 hover:text-neutral-500 underline py-2 cursor-pointer text-center"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 7: FINAL SUCCESS / GOODBYE DISPLAY */}
+            {offboardingStep === 7 && (
+              <div className="space-y-6 text-center py-6 animate-fadeIn">
+                <div className="relative w-20 h-20 mx-auto flex items-center justify-center bg-green-500/10 rounded-full border border-green-500/20">
+                  <Smile size={36} className="text-green-500" />
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs text-[#555555] dark:text-[#A9A9A9] leading-relaxed max-w-sm mx-auto">
+                    Thanks for using us. We will always be working on updating the app for everyone and we sincerely hope you'll come back one day.
+                  </p>
+                </div>
+
+                <div className="pt-4">
+                  <Button
+                    id="offboard-final-exit-btn"
+                    onClick={handleFinalExit}
+                    disabled={isDeletingAccount}
+                    className="w-full py-3.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl"
+                  >
+                    {isDeletingAccount ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Completing Deletion...</span>
+                      </span>
+                    ) : (
+                      <span>Bye</span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Step bubbles/indicator at the bottom of Modal */}
+          {offboardingStep < 7 && !showExitConfirm && (
+            <div className="flex items-center justify-center gap-2.5 pt-4 border-t border-neutral-100 dark:border-white/5">
+              {[1, 2, 3, 4, 5, 6].map((s) => (
+                <div
+                  key={s}
+                  className={`h-2 transition-all duration-300 rounded-full ${
+                    s === offboardingStep
+                      ? "w-6 bg-accent"
+                      : s < offboardingStep
+                      ? "w-2 bg-accent/40"
+                      : "w-2 bg-neutral-200 dark:bg-white/10"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </motion.div>
       </Modal>
     </motion.div>
   );

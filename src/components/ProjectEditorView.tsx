@@ -10,6 +10,7 @@ import { useUploadStore } from "../stores/upload.store";
 import { useToastStore } from "../stores/toast.store";
 import { Button } from "./Button";
 import { Card } from "./Card";
+import { Modal } from "./Modal";
 import { ImportMethodCard } from "./CreatorWorkspace/ImportMethodCard";
 import { CategorySelector, TagSelector } from "./CreatorWorkspace/Selectors";
 import { getApiUrl } from "../utils/api";
@@ -47,6 +48,7 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [pendingZip, setPendingZip] = useState<File | null>(null);
   const [pendingManualFiles, setPendingManualFiles] = useState<File[] | null>(null);
   const [pendingUrlUrls, setPendingUrlUrls] = useState<string[] | null>(null);
@@ -1220,6 +1222,7 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                     options={STYLES}
                     selected={editingDraft.styles}
                     onChange={(v) => setEditingDraft({ ...editingDraft, styles: v })}
+                    maxSelected={3}
                   />
 
                   <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-[#ECECEC] dark:border-white/10">
@@ -1232,9 +1235,9 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                       <span>Save as Draft</span>
                     </Button>
                     <Button
-                      onClick={publishDraft}
+                      onClick={() => setShowPublishConfirm(true)}
                       variant="primary"
-                      className="w-full h-12"
+                      className="w-full h-12 cursor-pointer"
                       disabled={!isFormValid}
                     >
                       <span>Publish Project</span>
@@ -1293,6 +1296,38 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
         )}
       </AnimatePresence>
 
+      <Modal
+        id="publish-confirm-editor"
+        show={showPublishConfirm}
+        onClose={() => setShowPublishConfirm(false)}
+        title="Publish this design?"
+        size="sm"
+      >
+        <div className="space-y-6 py-2 text-left">
+          <p className="text-sm text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+            Your design will become publicly visible and start receiving community feedback immediately.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Button
+              onClick={() => setShowPublishConfirm(false)}
+              variant="secondary"
+              className="w-full h-11 cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowPublishConfirm(false);
+                publishDraft();
+              }}
+              variant="primary"
+              className="w-full h-11 cursor-pointer"
+            >
+              Publish Design
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

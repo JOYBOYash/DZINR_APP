@@ -22,11 +22,19 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   size = 'md',
 }) => {
+  const [isNested, setIsNested] = React.useState(false);
+
   useEffect(() => {
     if (show) {
       document.body.style.overflow = 'hidden';
+      // Find how many modal containers or backdrops are currently present in the DOM
+      const existingBackdrops = document.querySelectorAll('.modal-backdrop-element');
+      if (existingBackdrops.length > 0) {
+        setIsNested(true);
+      }
     } else {
       document.body.style.overflow = 'unset';
+      setIsNested(false);
     }
     return () => {
       document.body.style.overflow = 'unset';
@@ -43,23 +51,27 @@ export const Modal: React.FC<ModalProps> = ({
     <AnimatePresence>
       {show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Backdrop blur */}
+          {/* Backdrop blur - only blur the first/outer backdrop, make subsequent ones transparent */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-[#000000]/60 backdrop-blur-md"
+            className={`modal-backdrop-element absolute inset-0 transition-all duration-300 ${
+              isNested 
+                ? "bg-[#000000]/20 backdrop-blur-none" 
+                : "bg-[#000000]/60 backdrop-blur-md"
+            }`}
           />
 
           {/* Modal Container */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            initial={{ opacity: 0, scale: 0.98, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            transition={{ type: "spring", duration: 0.3, bounce: 0.15 }}
+            exit={{ opacity: 0, scale: 0.98, y: 12 }}
+            transition={{ type: "spring", duration: 0.25, bounce: 0.08 }}
             id={id}
-            className={`relative w-full ${sizes[size]} bg-white dark:bg-elevated-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-[0_16px_48px_rgba(0,0,0,0.15)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.5)] overflow-hidden z-10 flex flex-col`}
+            className={`relative w-full ${sizes[size]} bg-white dark:bg-[#121214] ring-1 ring-[#000000]/5 dark:ring-white/10 border border-[#ECECEC]/80 dark:border-white/5 rounded-[28px] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.12),0_12px_24px_-8px_rgba(0,0,0,0.06)] dark:shadow-[0_32px_80px_-16px_rgba(0,0,0,0.6)] overflow-hidden z-10 flex flex-col`}
           >
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-[#ECECEC] dark:border-white/10">

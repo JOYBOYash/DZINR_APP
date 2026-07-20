@@ -91,6 +91,7 @@ interface MultiSelectProps {
   selected: string[];
   onChange: (selected: string[]) => void;
   theme: "dark" | "light";
+  maxSelected?: number;
 }
 
 export const TagSelector: React.FC<MultiSelectProps> = ({
@@ -99,34 +100,54 @@ export const TagSelector: React.FC<MultiSelectProps> = ({
   selected,
   onChange,
   theme,
+  maxSelected,
 }) => {
   const toggleSelection = (opt: string) => {
     if (selected.includes(opt)) {
       onChange(selected.filter((i) => i !== opt));
     } else {
+      if (maxSelected && selected.length >= maxSelected) {
+        // Prevent selection of more than the max limit
+        return;
+      }
       onChange([...selected, opt]);
     }
   };
 
+  const isLimitReached = maxSelected ? selected.length >= maxSelected : false;
+
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-[13px] font-sans font-bold tracking-wider opacity-60">
-        {label}
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="text-[13px] font-sans font-bold tracking-wider opacity-60">
+          {label}
+        </label>
+        {maxSelected && (
+          <span className="text-[11px] font-mono opacity-50">
+            {selected.length}/{maxSelected} selected
+          </span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => {
           const isSelected = selected.includes(opt);
+          const isDisabled = isLimitReached && !isSelected;
           return (
             <button
               key={opt}
               type="button"
               onClick={() => toggleSelection(opt)}
-              className={`px-3 py-1.5 text-[10px] font-mono uppercase rounded-[20px] transition-all cursor-pointer border ${
+              disabled={isDisabled}
+              className={`px-3 py-1.5 text-[10px] font-mono uppercase rounded-[20px] transition-all border ${
                 isSelected
-                  ? "bg-[#E85002] border-[#E85002] text-white"
-                  : theme === "dark"
-                    ? "border-white/10 text-white/70 hover:bg-white/5"
-                    : "border-black/10 text-black/70 hover:bg-black/5"
+                  ? "bg-[#E85002] border-[#E85002] text-white cursor-pointer"
+                  : isDisabled
+                    ? theme === "dark"
+                      ? "border-white/5 text-white/20 bg-transparent cursor-not-allowed animate-pulse"
+                      : "border-black/5 text-black/20 bg-transparent cursor-not-allowed animate-pulse"
+                    : theme === "dark"
+                      ? "border-white/10 text-white/70 hover:bg-white/5 cursor-pointer"
+                      : "border-black/10 text-black/70 hover:bg-black/5 cursor-pointer"
               }`}
             >
               {opt}

@@ -133,6 +133,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
       setError(null);
       setActionLoading(true);
       setLoading(true);
+      sessionStorage.setItem("dzinr_auth_action", isSignUp ? "signup" : "login");
       await authService.signInWithGoogle();
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
@@ -167,6 +168,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
 
     try {
       setActionLoading(true);
+      sessionStorage.setItem("dzinr_auth_action", isSignUp ? "signup" : "login");
       if (isSignUp) {
         const user = await authService.signUpWithEmail(email, password);
         if (user && user.email) {
@@ -177,10 +179,22 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
         setFirebaseUser(user);
       } else {
         const user = await authService.signInWithEmail(email, password);
-        if (user && !user.emailVerified && user.email) {
-          await authService.sendCustomVerificationEmail(user.email).catch((e) => {
-            console.warn("Failed to send login verification email:", e);
-          });
+        if (user) {
+          // Check if profile exists in Firestore users collection
+          const profile = await userService.getUserProfile(user.uid);
+          if (!profile) {
+            await authService.logout();
+            showToast("You haven't registered yet. Please sign up first!", "error");
+            setFirebaseUser(null);
+            setShowAuthForm(false); // Back to landing page
+            return;
+          }
+
+          if (!user.emailVerified && user.email) {
+            await authService.sendCustomVerificationEmail(user.email).catch((e) => {
+              console.warn("Failed to send login verification email:", e);
+            });
+          }
         }
         setFirebaseUser(user);
       }

@@ -23,6 +23,7 @@ import {
   ZoomIn,
 } from "lucide-react";
 import { UserProfile } from "../types";
+import { formatLikesCount } from "../utils/likes";
 import { designService, Design } from "../services/design.service";
 import { zipImportService } from "../services/zipImport.service";
 import { cloudinaryService } from "../services/cloudinary.service";
@@ -36,6 +37,7 @@ import { ImportMethodCard } from "./CreatorWorkspace/ImportMethodCard";
 import { CategorySelector, TagSelector } from "./CreatorWorkspace/Selectors";
 import { DesignCarousel } from "./DesignCarousel";
 import { Tooltip } from "./Tooltip";
+import { Modal } from "./Modal";
 
 const CATEGORIES = [
   "Carousels",
@@ -87,6 +89,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   const [activeTab, setActiveTab] = useState<Tab>("drafts");
   const [draftToDelete, setDraftToDelete] = useState<Design | null>(null);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   // Lightbox and interactive preview states
   const [lightboxDesign, setLightboxDesign] = useState<Design | null>(null);
@@ -98,6 +101,70 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const imageAreaRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const touchAreaRef = useRef<HTMLDivElement>(null);
+
+  // Programmatic swipe gesture handler for mobile viewer with { passive: false } to override browser defaults
+  useEffect(() => {
+    const element = touchAreaRef.current;
+    if (!element) return;
+
+    let startX = 0;
+    let endX = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (zoomScale === 1 && e.touches.length === 1) {
+        startX = e.touches[0].clientX;
+        endX = e.touches[0].clientX;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (zoomScale === 1 && e.touches.length === 1) {
+        endX = e.touches[0].clientX;
+        const diffX = Math.abs(startX - endX);
+        // If swiping horizontally, prevent standard scrolling / back gesture
+        if (diffX > 8) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (zoomScale === 1 && startX !== 0) {
+        const diffX = startX - endX;
+        const minSwipeDistance = 40; // responsive threshold
+        const currentUrls = (lightboxDesign?.imageUrls && lightboxDesign.imageUrls.length > 0)
+          ? lightboxDesign.imageUrls
+          : [lightboxDesign?.imageUrl].filter(Boolean);
+
+        if (currentUrls.length > 1) {
+          if (diffX > minSwipeDistance) {
+            // Swipe left -> Next image
+            setActiveSlideIdx((prev) => (prev < currentUrls.length - 1 ? prev + 1 : 0));
+          } else if (diffX < -minSwipeDistance) {
+            // Swipe right -> Previous image
+            setActiveSlideIdx((prev) => (prev > 0 ? prev - 1 : currentUrls.length - 1));
+          }
+        }
+      }
+      startX = 0;
+      endX = 0;
+    };
+
+    element.addEventListener("touchstart", handleTouchStart, { passive: true });
+    element.addEventListener("touchmove", handleTouchMove, { passive: false });
+    element.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+    return () => {
+      element.removeEventListener("touchstart", handleTouchStart);
+      element.removeEventListener("touchmove", handleTouchMove);
+      element.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [lightboxDesign, zoomScale]);
+
+  // Swipe gesture state for mobile viewer
+  const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
+  const [swipeEndX, setSwipeEndX] = useState<number | null>(null);
 
   // Automatically reset collapse state, zoom, and slide on mobile vs desktop when design changes
   useEffect(() => {
@@ -524,32 +591,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto space-y-8 animate-fade-in text-left pb-24 px-4 sm:px-6 pt-8 sm:pt-12 md:pt-16">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ECECEC] dark:border-white/10 pb-4">
-        <div>
-          <span className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
-            theme === "dark" ? "text-white" : "text-accent"
-          }`}>Workspace Portfolio</span>
-          <h1 className="text-xl sm:text-2xl font-bold font-space tracking-tight flex items-center gap-2 text-[#171717] dark:text-white mt-0.5">
-            <Layers className={theme === "dark" ? "text-white" : "text-accent"} size={20} />
-            <span>My Designs Layouts</span>
-          </h1>
-          <p className="text-xs text-[#555555] dark:text-[#D7D7D7] mt-1 leading-relaxed">
-            Manage draft iterations, ZIP bulk directories, and visual portfolio posts.
-          </p>
-        </div>
-        
-        <Button
-          onClick={() => onCreateNew?.()}
-          variant="primary"
-          className="h-11 px-5"
-        >
-          <Plus size={15} />
-          <span>Create New Post</span>
-        </Button>
-      </div>
-
+    <div className="w-full max-w-[1400px] mx-auto space-y-8 animate-fade-in text-left pb-24 px-4 sm:px-6 pt-4 sm:pt-6 md:pt-8">
       {/* Tabs */}
       <div className="flex items-center gap-6 border-b border-[#ECECEC] dark:border-white/10 pb-0.5">
         <button
@@ -581,155 +623,162 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           <span className="text-xs font-mono text-[#888888] uppercase tracking-wider">Crawl indices active...</span>
         </div>
       ) : activeTab === "drafts" ? (
-        drafts.length === 0 ? (
-          <div className="py-24 text-center flex flex-col items-center justify-center gap-4 bg-[#F7F7F8] dark:bg-surface-dark/40 rounded-[24px] border border-[#ECECEC] dark:border-white/5">
-            <img 
-              src={theme === 'dark' ? '/no-data-found-d.svg' : '/no-data-found-l.svg'} 
-              alt="No drafts found" 
-              className="w-48 h-auto opacity-70 mb-2"
-            />
-            <span className="text-xs font-mono text-[#888888] uppercase tracking-widest">
-              No active drafting frames indexed. Create a new post mockup above.
-            </span>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Selected items publisher banner bar */}
-            {selectedDrafts.size > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="fixed top-0 left-0 right-0 md:top-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[90%] md:max-w-xl md:rounded-[22px] md:border md:border-accent/30 rounded-none border-t-0 border-x-0 border-b border-accent/20 md:bg-white/95 md:dark:bg-[#1E1E1E]/95 bg-white dark:bg-[#1E1E1E] backdrop-blur-md shadow-lg md:shadow-2xl z-[150] flex flex-row items-center justify-between gap-4 p-4 m-0 animate-fade-in"
-              >
-                <div className="flex items-center gap-2 sm:gap-4">
-                  <span className="text-[11px] sm:text-xs font-space font-bold uppercase tracking-wider text-[#171717] dark:text-white shrink-0">
-                    {selectedDrafts.size} selected
-                  </span>
-                  <button
-                    onClick={clearSelection}
-                    className="text-[10px] sm:text-xs font-mono text-[#888888] hover:text-accent underline cursor-pointer shrink-0"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                  <Button
-                    onClick={() => setShowMultiDeleteConfirm("draft")}
-                    variant="secondary"
-                    loading={deleteSelectedMutation.isPending}
-                    className="py-1.5 sm:py-2 px-3 sm:px-5 text-[10px] sm:text-xs h-auto !border-red-500 !text-red-500 hover:!bg-red-500/10"
-                  >
-                    <span className="sm:hidden">Delete</span>
-                    <span className="hidden sm:inline">Delete Selected</span>
-                  </Button>
-                  <Button
-                    loading={publishMutation.isPending}
-                    onClick={() => publishMutation.mutate(Array.from(selectedDrafts))}
-                    variant="primary"
-                    className="py-1.5 sm:py-2 px-3 sm:px-5 text-[10px] sm:text-xs h-auto"
-                  >
-                    <span className="sm:hidden">Publish</span>
-                    <span className="hidden sm:inline">Publish for Feedback</span>
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {drafts.map((draft) => (
-                <Card
-                  key={draft.id}
-                  className="overflow-hidden hover:border-accent hover:shadow-[0_8px_24px_rgba(201,0,35,0.06)] relative group"
+        <div className="space-y-6">
+          {/* Selected items publisher banner bar */}
+          {selectedDrafts.size > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="fixed top-0 left-0 right-0 md:top-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-[90%] md:max-w-xl md:rounded-[22px] md:border md:border-accent/30 rounded-none border-t-0 border-x-0 border-b border-accent/20 md:bg-white/95 md:dark:bg-[#1E1E1E]/95 bg-white dark:bg-[#1E1E1E] backdrop-blur-md shadow-lg md:shadow-2xl z-[150] flex flex-row items-center justify-between gap-4 p-4 m-0 animate-fade-in"
+            >
+              <div className="flex items-center gap-2 sm:gap-4">
+                <span className="text-[11px] sm:text-xs font-space font-bold uppercase tracking-wider text-[#171717] dark:text-white shrink-0">
+                  {selectedDrafts.size} selected
+                </span>
+                <button
+                  onClick={clearSelection}
+                  className="text-[10px] sm:text-xs font-mono text-[#888888] hover:text-accent underline cursor-pointer shrink-0"
                 >
-                  {/* Select Checkbox */}
-                  <button
-                    onClick={() => toggleDraftSelection(draft.id)}
-                    className={`absolute top-4 left-4 z-20 w-6 h-6 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
-                      selectedDrafts.has(draft.id) 
-                        ? "bg-accent border-accent text-white" 
-                        : "bg-black/40 border-white/40 text-transparent hover:border-white"
-                    }`}
-                  >
-                    {selectedDrafts.has(draft.id) && <CheckCircle2 size={14} className="stroke-[3]" />}
-                  </button>
+                  Clear
+                </button>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <Button
+                  onClick={() => setShowMultiDeleteConfirm("draft")}
+                  variant="secondary"
+                  loading={deleteSelectedMutation.isPending}
+                  className="py-1.5 sm:py-2 px-3 sm:px-5 text-[10px] sm:text-xs h-auto !border-red-500 !text-red-500 hover:!bg-red-500/10"
+                >
+                  <span className="sm:hidden">Delete</span>
+                  <span className="hidden sm:inline">Delete Selected</span>
+                </Button>
+                <Button
+                  loading={publishMutation.isPending}
+                  onClick={() => setShowPublishConfirm(true)}
+                  variant="primary"
+                  className="py-1.5 sm:py-2 px-3 sm:px-5 text-[10px] sm:text-xs h-auto cursor-pointer"
+                >
+                  <span className="sm:hidden">Publish</span>
+                  <span className="hidden sm:inline">Publish for Feedback</span>
+                </Button>
+              </div>
+            </motion.div>
+          )}
 
-                  <div 
-                    onClick={() => setLightboxDesign(draft)}
-                    className="relative w-full aspect-[16/10] bg-neutral-100 dark:bg-neutral-900 overflow-hidden cursor-pointer"
-                  >
-                    <DesignCarousel
-                      imageUrls={draft.imageUrls}
-                      fallbackUrl={draft.imageUrl}
-                      title={draft.title || "Untitled Draft"}
-                      className="w-full h-full"
-                    />
-                    
-                    {/* Hover triggers - always visible as an overlay block on mobile/touch screens, hover-only on desktop */}
-                    <div className="absolute inset-0 bg-black/40 sm:bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3 sm:p-4 z-10 pointer-events-none">
-                      <div className="grid grid-cols-2 gap-2 w-full">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditDraft?.(draft.id);
-                          }}
-                          className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center justify-center gap-1.5 hover:text-accent cursor-pointer bg-black/70 sm:bg-transparent px-2.5 py-2 sm:p-0 rounded-xl sm:rounded-none border border-white/15 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none transition-all"
-                        >
-                          <Edit3 size={11} className="sm:w-[13px] sm:h-[13px]" /> Edit Layout
-                        </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Elegant visual creation card preceding other drafts */}
+            <Card
+              onClick={() => onCreateNew?.()}
+              className="overflow-hidden border-2 border-dashed border-[#ECECEC]/80 dark:border-white/10 hover:border-accent dark:hover:border-accent hover:shadow-[0_8px_24px_rgba(201,0,35,0.08)] bg-neutral-50/40 dark:bg-[#1E1E1E]/10 flex flex-col items-center justify-center p-6 text-center transition-all cursor-pointer group min-h-[340px] h-full"
+            >
+              <div className="flex flex-col items-center justify-center space-y-4 my-auto">
+                <div className="w-16 h-16 rounded-full bg-accent/5 dark:bg-white/5 flex items-center justify-center border border-accent/15 dark:border-white/15 group-hover:scale-110 group-hover:bg-accent group-hover:border-accent transition-all duration-300">
+                  <Plus className="text-accent dark:text-white group-hover:text-white transition-colors" size={28} strokeWidth={2.5} />
+                </div>
+                <div className="space-y-1.5">
+                  <h4 className="font-space font-bold text-[#171717] dark:text-white group-hover:text-accent transition-colors">
+                    Create New Post
+                  </h4>
+                  <p className="text-xs text-[#888888] max-w-[200px] leading-relaxed mx-auto font-sans">
+                    Craft a new layout mockup, portfolio post, or upload custom design assets
+                  </p>
+                </div>
+              </div>
+            </Card>
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLightboxDesign(draft);
-                          }}
-                          className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center justify-center gap-1.5 hover:text-accent cursor-pointer bg-black/70 sm:bg-transparent px-2.5 py-2 sm:p-0 rounded-xl sm:rounded-none border border-white/15 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none transition-all"
-                        >
-                          Preview Draft
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+            {drafts.map((draft) => (
+              <Card
+                key={draft.id}
+                className="overflow-hidden hover:border-accent hover:shadow-[0_8px_24px_rgba(201,0,35,0.06)] relative group"
+              >
+                {/* Select Checkbox */}
+                <button
+                  onClick={() => toggleDraftSelection(draft.id)}
+                  className={`absolute top-4 left-4 z-20 w-6 h-6 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
+                    selectedDrafts.has(draft.id) 
+                      ? "bg-accent border-accent text-white" 
+                      : "bg-black/40 border-white/40 text-transparent hover:border-white"
+                  }`}
+                >
+                  {selectedDrafts.has(draft.id) && <CheckCircle2 size={14} className="stroke-[3]" />}
+                </button>
 
-                  <div className="p-4 space-y-2">
-                    <h4 
-                      onClick={() => setLightboxDesign(draft)}
-                      className="font-space font-semibold text-sm text-[#171717] dark:text-white truncate cursor-pointer hover:text-accent transition-colors"
-                    >
-                      {draft.title || "Untitled Draft Mockup"}
-                    </h4>
-                    <p className="text-xs text-[#555555] dark:text-[#D7D7D7] truncate">
-                      {draft.description || "No description set"}
-                    </p>
-                    <div className="flex items-end justify-between pt-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        <Badge variant="brand" className="capitalize text-[9px] px-2 py-0.5">{draft.source} Upload</Badge>
-                        {draft.category && (
-                          <Badge variant="secondary" className="text-[9px] px-2 py-0.5">{draft.category}</Badge>
-                        )}
-                        {draft.styles?.slice(0, 2).map((s) => (
-                          <Badge key={s} variant="outline" className="text-[9px] px-2 py-0.5">{s}</Badge>
-                        ))}
-                        {draft.styles && draft.styles.length > 2 && (
-                          <Badge variant="outline" className="text-[9px] px-2 py-0.5">+{draft.styles.length - 2}</Badge>
-                        )}
-                      </div>
+                <div 
+                  onClick={() => setLightboxDesign(draft)}
+                  className="relative w-full aspect-[16/10] bg-neutral-100 dark:bg-neutral-900 overflow-hidden cursor-pointer"
+                >
+                  <DesignCarousel
+                    imageUrls={draft.imageUrls}
+                    fallbackUrl={draft.imageUrl}
+                    title={draft.title || "Untitled Draft"}
+                    className="w-full h-full"
+                  />
+                  
+                  {/* Hover triggers - always visible as an overlay block on mobile/touch screens, hover-only on desktop */}
+                  <div className="absolute inset-0 bg-black/40 sm:bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3 sm:p-4 z-10 pointer-events-none">
+                    <div className="grid grid-cols-2 gap-2 w-full">
                       <button
                         onClick={(e) => {
-                          e.preventDefault();
-                          setDraftToDelete(draft);
+                          e.stopPropagation();
+                          onEditDraft?.(draft.id);
                         }}
-                        className="text-[#888888] hover:text-red-500 transition-colors shrink-0 pb-1"
-                        title="Delete Draft"
+                        className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center justify-center gap-1.5 hover:text-accent cursor-pointer bg-black/70 sm:bg-transparent px-2.5 py-2 sm:p-0 rounded-xl sm:rounded-none border border-white/15 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none transition-all"
                       >
-                        <Trash2 size={14} />
+                        <Edit3 size={11} className="sm:w-[13px] sm:h-[13px]" /> Edit Layout
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxDesign(draft);
+                        }}
+                        className="text-[10px] sm:text-xs font-space font-bold uppercase text-white flex items-center justify-center gap-1.5 hover:text-accent cursor-pointer bg-black/70 sm:bg-transparent px-2.5 py-2 sm:p-0 rounded-xl sm:rounded-none border border-white/15 sm:border-transparent pointer-events-auto shadow-md sm:shadow-none transition-all"
+                      >
+                        Preview Draft
                       </button>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
+                </div>
+
+                <div className="p-4 space-y-2">
+                  <h4 
+                    onClick={() => setLightboxDesign(draft)}
+                    className="font-space font-semibold text-sm text-[#171717] dark:text-white truncate cursor-pointer hover:text-accent transition-colors text-left"
+                  >
+                    {draft.title || "Untitled Draft Mockup"}
+                  </h4>
+                  <p className="text-xs text-[#555555] dark:text-[#D7D7D7] truncate text-left font-sans">
+                    {draft.description || "No description set"}
+                  </p>
+                  <div className="flex items-end justify-between pt-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant="brand" className="capitalize text-[9px] px-2 py-0.5">{draft.source} Upload</Badge>
+                      {draft.category && (
+                        <Badge variant="secondary" className="text-[9px] px-2 py-0.5">{draft.category}</Badge>
+                      )}
+                      {draft.styles?.slice(0, 2).map((s) => (
+                        <Badge key={s} variant="outline" className="text-[9px] px-2 py-0.5">{s}</Badge>
+                      ))}
+                      {draft.styles && draft.styles.length > 2 && (
+                        <Badge variant="outline" className="text-[9px] px-2 py-0.5">+{draft.styles.length - 2}</Badge>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDraftToDelete(draft);
+                      }}
+                      className="text-[#888888] hover:text-red-500 transition-colors shrink-0 pb-1 cursor-pointer"
+                      title="Delete Draft"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
-        )
+        </div>
       ) : publishedDesigns.length === 0 ? (
         <div className="py-24 text-center flex flex-col items-center justify-center gap-4 bg-[#F7F7F8] dark:bg-surface-dark/40 rounded-[24px] border border-[#ECECEC] dark:border-white/5">
           <img 
@@ -845,23 +894,36 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     )}
                   </div>
                   <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-3 text-[10px] font-mono text-[#888888] uppercase tracking-wider">
-                      <span className="flex items-center gap-1 text-accent font-bold">
-                        <Heart size={11} fill="currentColor" className="stroke-none" />
-                        <span>{design.stats.likes} Likes</span>
-                      </span>
-                      <span>•</span>
-                      <span>Published {new Date(design.publishedAt!).toLocaleDateString()}</span>
+                    <div className="flex items-center gap-3">
+                      {/* Beautiful modern pill-shaped like indicator */}
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 dark:bg-red-500/20 border border-red-500/20 dark:border-red-500/30 text-[#C90023] dark:text-red-400 font-space font-black text-xs select-none hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer" title={`${design.stats.likes} likes`}>
+                        <Heart 
+                          size={13} 
+                          fill="currentColor" 
+                          className="text-[#C90023] dark:text-red-400 shrink-0" 
+                        />
+                        <span>
+                          {formatLikesCount(design.stats.likes)}
+                        </span>
+                      </div>
+                      
+                      {/* Published details */}
+                      <div className="flex flex-col text-left">
+                        <span className="text-[9px] font-mono text-[#888888] uppercase tracking-wider leading-none">Published</span>
+                        <span className="text-[11px] font-space font-medium text-[#555555] dark:text-[#CCCCCC] mt-0.5">
+                          {new Date(design.publishedAt!).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
                         setDraftToDelete(design);
                       }}
-                      className="text-[#888888] hover:text-red-500 transition-colors shrink-0"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-[#888888] hover:text-red-500 hover:bg-red-500/10 transition-all duration-200 shrink-0 cursor-pointer"
                       title="Delete Published Design"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 </div>
@@ -872,122 +934,84 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       )}
 
       {/* Deletion dialog Modal */}
-      <AnimatePresence>
-        {draftToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+      <Modal
+        id="delete-draft-modal"
+        show={!!draftToDelete}
+        onClose={() => setDraftToDelete(null)}
+        title="Remove Design Frame?"
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
               onClick={() => setDraftToDelete(null)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 300 }}
-              dragElastic={{ top: 0.1, bottom: 0.8 }}
-              onDragEnd={(event, info) => {
-                if (info.offset.y > 80) {
-                  setDraftToDelete(null);
-                }
-              }}
-              initial={{ opacity: 0, scale: 0.98, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: 10 }}
-              className="relative w-full max-w-md p-6 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-lg dark:shadow-none text-left z-10 cursor-grab active:cursor-grabbing select-none"
+              variant="secondary"
+              className="py-2.5 px-4 h-auto text-xs cursor-pointer"
             >
-              <h3 className="text-base font-bold font-space text-[#171717] dark:text-white uppercase tracking-wider mb-2">
-                Remove Design Frame?
-              </h3>
-              <p className="text-xs text-[#555555] dark:text-[#D7D7D7] mb-6 leading-relaxed">
-                Are you sure you want to permanently erase <span className="font-semibold text-accent">"{draftToDelete.title || "Untitled Draft"}"</span>? This will sync indices and cannot be undone.
-              </p>
-              <div className="flex gap-3 justify-end">
-                <Button
-                  type="button"
-                  onClick={() => setDraftToDelete(null)}
-                  variant="secondary"
-                  className="py-2.5 px-4 h-auto text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    deleteMutation.mutate({
-                      id: draftToDelete.id,
-                      status: draftToDelete.status,
-                    });
-                    setDraftToDelete(null);
-                  }}
-                  variant="primary"
-                  className="py-2.5 px-5 h-auto text-xs"
-                >
-                  Delete Draft
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (draftToDelete) {
+                  deleteMutation.mutate({
+                    id: draftToDelete.id,
+                    status: draftToDelete.status,
+                  });
+                }
+                setDraftToDelete(null);
+              }}
+              variant="primary"
+              className="py-2.5 px-5 h-auto text-xs cursor-pointer"
+            >
+              Delete Draft
+            </Button>
+          </>
+        }
+      >
+        <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+          Are you sure you want to permanently erase <span className="font-semibold text-accent">"{draftToDelete?.title || "Untitled Draft"}"</span>? This will sync indices and cannot be undone.
+        </p>
+      </Modal>
 
       {/* Multi-Deletion dialog Modal */}
-      <AnimatePresence>
-        {showMultiDeleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+      <Modal
+        id="multi-delete-modal"
+        show={!!showMultiDeleteConfirm}
+        onClose={() => setShowMultiDeleteConfirm(null)}
+        title={showMultiDeleteConfirm ? `Remove ${showMultiDeleteConfirm === 'draft' ? selectedDrafts.size : selectedPublished.size} Designs?` : "Remove Designs?"}
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
               onClick={() => setShowMultiDeleteConfirm(null)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 300 }}
-              dragElastic={{ top: 0.1, bottom: 0.8 }}
-              onDragEnd={(event, info) => {
-                if (info.offset.y > 80) {
-                  setShowMultiDeleteConfirm(null);
-                }
-              }}
-              initial={{ opacity: 0, scale: 0.98, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: 10 }}
-              className="relative w-full max-w-md p-6 bg-white dark:bg-surface-dark border border-[#ECECEC] dark:border-white/10 rounded-[24px] shadow-lg dark:shadow-none text-left z-10 cursor-grab active:cursor-grabbing select-none"
+              variant="secondary"
+              className="py-2.5 px-4 h-auto text-xs cursor-pointer"
             >
-              <h3 className="text-base font-bold font-space text-[#171717] dark:text-white uppercase tracking-wider mb-2">
-                Remove {showMultiDeleteConfirm === 'draft' ? selectedDrafts.size : selectedPublished.size} Designs?
-              </h3>
-              <p className="text-xs text-[#555555] dark:text-[#D7D7D7] mb-6 leading-relaxed">
-                Are you sure you want to permanently erase the selected designs? This will sync indices and cannot be undone.
-              </p>
-              <div className="flex gap-3 justify-end">
-                <Button
-                  type="button"
-                  onClick={() => setShowMultiDeleteConfirm(null)}
-                  variant="secondary"
-                  className="py-2.5 px-4 h-auto text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    const ids = Array.from(showMultiDeleteConfirm === 'draft' ? selectedDrafts : selectedPublished) as string[];
-                    deleteSelectedMutation.mutate({ ids, status: showMultiDeleteConfirm });
-                    setShowMultiDeleteConfirm(null);
-                  }}
-                  variant="primary"
-                  className="py-2.5 px-5 h-auto text-xs"
-                >
-                  Delete Selected
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (showMultiDeleteConfirm) {
+                  const ids = Array.from(showMultiDeleteConfirm === 'draft' ? selectedDrafts : selectedPublished) as string[];
+                  deleteSelectedMutation.mutate({ ids, status: showMultiDeleteConfirm });
+                }
+                setShowMultiDeleteConfirm(null);
+              }}
+              variant="primary"
+              className="py-2.5 px-5 h-auto text-xs cursor-pointer"
+            >
+              Delete Selected
+            </Button>
+          </>
+        }
+      >
+        <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+          Are you sure you want to permanently erase the selected designs? This will sync indices and cannot be undone.
+        </p>
+      </Modal>
 
       {/* Dynamic Projects Preview Lightbox */}
       <AnimatePresence>
@@ -1160,11 +1184,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
                   {/* Active Slide Image Wrapper */}
                   <motion.div
+                    ref={touchAreaRef}
                     initial={{ scale: 0.94, opacity: 0, y: 15 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.94, opacity: 0, y: 15 }}
                     transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.05 }}
-                    className="relative z-10 w-full h-full flex items-center justify-center overflow-visible"
+                    className="relative z-10 w-full h-full flex items-center justify-center overflow-visible touch-pan-y"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Carousel Nav Button Left */}
@@ -1449,6 +1474,39 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Modal
+        id="publish-confirm-modal"
+        show={showPublishConfirm}
+        onClose={() => setShowPublishConfirm(false)}
+        title="Publish this design?"
+        size="sm"
+      >
+        <div className="space-y-6 py-2 text-left">
+          <p className="text-sm text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+            Your design will become publicly visible and start receiving community feedback immediately.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Button
+              onClick={() => setShowPublishConfirm(false)}
+              variant="secondary"
+              className="w-full h-11 cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowPublishConfirm(false);
+                publishMutation.mutate(Array.from(selectedDrafts));
+              }}
+              variant="primary"
+              className="w-full h-11 cursor-pointer"
+            >
+              Publish Design
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

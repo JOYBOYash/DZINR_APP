@@ -62,8 +62,44 @@ export const DesignCarousel: React.FC<DesignCarouselProps> = ({
     setIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX === null || touchEndX === null) return;
+    const diffX = touchStartX - touchEndX;
+    const minSwipeDistance = 50;
+
+    if (diffX > minSwipeDistance) {
+      // Swiped left -> Next
+      setDirection(1);
+      setIndex((prev) => (prev + 1) % images.length);
+    } else if (diffX < -minSwipeDistance) {
+      // Swiped right -> Prev
+      setDirection(-1);
+      setIndex((prev) => (prev - 1 + images.length) % images.length);
+    }
+
+    setTouchStartX(null);
+    setTouchEndX(null);
+  };
+
   return (
-    <div className={`relative ${className} bg-black/20 overflow-hidden group/carousel`}>
+    <div
+      className={`relative ${className} bg-black/20 overflow-hidden group/carousel touch-pan-y`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Slides */}
       <div className="absolute inset-0">
         <AnimatePresence initial={false} custom={direction} mode="popLayout">

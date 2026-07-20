@@ -111,6 +111,16 @@ input:-webkit-autofill:active{
   background-color: var(--color-accent, #C90023); /* Accent color for light mode */
 }
 
+/* Ensure all clickable things show cursor pointer */
+button,
+a,
+input[type="submit"],
+input[type="button"],
+[role="button"],
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
 .dark .svg-theme-color {
   background-color: #FFFFFF; /* White for dark mode */
 }

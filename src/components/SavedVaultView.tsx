@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Move, ZoomIn, Grid, Layers } from "lucide-react";
+import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Move, ZoomIn, Grid, Layers, Heart } from "lucide-react";
+import { formatLikesCount } from "../utils/likes";
 import { UserProfile } from "../types";
 import { Design } from "../services/design.service";
 import { discoveryService } from "../services/discovery.service";
@@ -552,22 +553,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
   const displayedDesigns = (verifiedDesigns || []).slice(0, visibleCount);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 md:px-0 py-4">
-      {/* Page Header */}
-      <div className="mb-8 text-left">
-        <span className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
-          theme === "dark" ? "text-white" : "text-accent"
-        }`}>
-          Personal Aesthetic Vault
-        </span>
-        <h1 className="text-3xl font-bold font-space text-[#171717] dark:text-white tracking-tight mt-1">
-          Saved Inspirations
-        </h1>
-        <p className="text-sm text-[#555555] dark:text-[#D7D7D7] mt-2 leading-relaxed max-w-2xl">
-          A dedicated, real-time catalog of interface designs, typographic systems, and layouts you have curated from the swiping feed.
-        </p>
-      </div>
-
+    <div className="w-full max-w-7xl mx-auto px-4 md:px-0 py-4 pt-6">
       {verifiedDesigns === null ? (
         <div className="py-24 flex flex-col items-center justify-center gap-3 text-xs font-mono text-[#888888] dark:text-[#A9A9A9]">
           <Loader id="saved-vault-loader" size="md" />
@@ -638,27 +624,27 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
             <div className="flex items-center gap-1 bg-neutral-100 dark:bg-white/5 p-1 rounded-xl self-start sm:self-auto">
               <button
                 onClick={() => setViewMode("grouped")}
-                className={`p-2 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                className={`p-2 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center ${
                   viewMode === "grouped"
-                    ? "bg-white dark:bg-white/10 text-[#171717] dark:text-white shadow-sm font-semibold"
+                    ? "bg-white dark:bg-white/10 text-[#171717] dark:text-white shadow-sm"
                     : "text-[#555555] dark:text-[#A9A9A9] hover:text-[#171717] dark:hover:text-white"
                 }`}
-                title="Group by Style Aesthetic"
+                title="Grouped by Style"
+                aria-label="Grouped by Style"
               >
-                <Layers size={14} />
-                <span className="hidden sm:inline">Grouped by Style</span>
+                <Layers size={15} />
               </button>
               <button
                 onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                className={`p-2 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center ${
                   viewMode === "grid"
-                    ? "bg-white dark:bg-white/10 text-[#171717] dark:text-white shadow-sm font-semibold"
+                    ? "bg-white dark:bg-white/10 text-[#171717] dark:text-white shadow-sm"
                     : "text-[#555555] dark:text-[#A9A9A9] hover:text-[#171717] dark:hover:text-white"
                 }`}
-                title="Continuous Grid View"
+                title="Continuous Grid"
+                aria-label="Continuous Grid"
               >
-                <Grid size={14} />
-                <span className="hidden sm:inline">Continuous Grid</span>
+                <Grid size={15} />
               </button>
             </div>
           </div>
@@ -716,16 +702,35 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
                               
                               {/* Overlay content */}
-                              <div className="absolute inset-0 flex flex-col justify-end p-4 text-left z-10 pointer-events-none">
-                                <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate">
-                                  {design.category || "Design"}
-                                </span>
-                                <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight">
-                                  {design.title}
-                                </h4>
-                                <span className="text-[10px] font-mono text-neutral-400 mt-1">
-                                  @{creatorUsername}
-                                </span>
+                              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-4 text-left z-10 pointer-events-none">
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate block">
+                                    {design.category || "Design"}
+                                  </span>
+                                  <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight block">
+                                    {design.title}
+                                  </h4>
+                                  <span className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5">
+                                    @{creatorUsername}
+                                  </span>
+                                  {design.publishedAt && (
+                                    <span className="text-[9px] font-mono text-neutral-400 block truncate mt-1 tracking-wider uppercase">
+                                      {new Date(design.publishedAt).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Beautiful modern pill-shaped like indicator */}
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#C90023]/20 hover:bg-[#C90023]/30 border border-[#C90023]/40 text-white font-space font-black text-xs select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
+                                  <Heart 
+                                    size={12} 
+                                    fill="#FF3355" 
+                                    className="text-[#FF3355] shrink-0" 
+                                  />
+                                  <span>
+                                    {formatLikesCount(design.stats?.likes || 0)}
+                                  </span>
+                                </div>
                               </div>
 
                               {/* Direct Unsave button */}
@@ -788,16 +793,35 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
                           
                           {/* Overlay content */}
-                          <div className="absolute inset-0 flex flex-col justify-end p-4 text-left z-10 pointer-events-none">
-                            <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate">
-                              {design.category || "Design"}
-                            </span>
-                            <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight">
-                              {design.title}
-                            </h4>
-                            <span className="text-[10px] font-mono text-neutral-400 mt-1">
-                              @{creatorUsername}
-                            </span>
+                          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-4 text-left z-10 pointer-events-none">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate block">
+                                {design.category || "Design"}
+                              </span>
+                              <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight block">
+                                {design.title}
+                              </h4>
+                              <span className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5">
+                                @{creatorUsername}
+                              </span>
+                              {design.publishedAt && (
+                                <span className="text-[9px] font-mono text-neutral-400 block truncate mt-1 tracking-wider uppercase">
+                                  {new Date(design.publishedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Beautiful modern pill-shaped like indicator */}
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#C90023]/20 hover:bg-[#C90023]/30 border border-[#C90023]/40 text-white font-space font-black text-xs select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
+                              <Heart 
+                                size={12} 
+                                fill="#FF3355" 
+                                className="text-[#FF3355] shrink-0" 
+                              />
+                              <span>
+                                {formatLikesCount(design.stats?.likes || 0)}
+                              </span>
+                            </div>
                           </div>
 
                           {/* Direct Unsave button */}
