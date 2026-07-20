@@ -480,19 +480,22 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       );
 
       if (deletedIds.length > 0) {
+        // 1. Cleanly update designs state synchronously
         setVerifiedDesigns((prev) => {
           if (!prev) return prev;
-          const orphanedDesigns = prev.filter(d => deletedIds.includes(d.userId));
-          if (orphanedDesigns.length > 0) {
-            import("firebase/firestore").then(async ({ deleteDoc, doc }) => {
-              const { db } = await import("../services/firebase");
-              for (const design of orphanedDesigns) {
-                await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
-              }
-            }).catch((e) => console.warn("Failed to delete orphaned designs:", e));
-          }
           return prev.filter((d) => !deletedIds.includes(d.userId));
         });
+
+        // 2. Perform Firestore deletion side effect safely in the async context outside the state updater
+        const orphanedDesigns = verifiedDesigns.filter(d => deletedIds.includes(d.userId));
+        if (orphanedDesigns.length > 0) {
+          import("firebase/firestore").then(async ({ deleteDoc, doc }) => {
+            const { db } = await import("../services/firebase");
+            for (const design of orphanedDesigns) {
+              await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
+            }
+          }).catch((e) => console.warn("Failed to delete orphaned designs:", e));
+        }
       }
 
       setUsernames((prev) => ({ ...prev, ...newNames }));

@@ -840,6 +840,8 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
 
   // Dynamically resolve creator profile info
   useEffect(() => {
+    let active = true;
+
     if (!designs || designs.length === 0) {
       setActiveCreator(null);
       return;
@@ -864,38 +866,46 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
     const fetchCreator = async () => {
       try {
         const profile = await userService.getUserProfile(creatorId);
+        if (!active) return;
+
         if (profile) {
           creatorProfilesRef.current[creatorId] = profile;
           // Verify we are still on the same card when the async fetch completes
-          setDesigns((currentDesigns) => {
-            if (currentDesigns.length > 0 && currentDesigns[0].userId === creatorId) {
-              setActiveCreator(profile);
+          setActiveCreator((currentActive) => {
+            if (designs.length > 0 && designs[0].userId === creatorId) {
+              return profile;
             }
-            return currentDesigns;
+            return currentActive;
           });
         } else {
           // Creator profile doesn't exist anymore (deleted user).
-          // Filter out their designs entirely so they do not appear in the feed.
-          setDesigns((prev) => {
-            const orphaned = prev.filter((d) => d.userId === creatorId);
-            if (orphaned.length > 0) {
-              import("firebase/firestore").then(async ({ deleteDoc, doc }) => {
-                const { db } = await import("../services/firebase");
-                for (const design of orphaned) {
-                  await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
-                }
-              }).catch((e) => console.warn("Failed to delete orphaned designs:", e));
-            }
-            return prev.filter((d) => d.userId !== creatorId);
-          });
+          // 1. Filter out their designs entirely so they do not appear in the feed.
+          setDesigns((prev) => prev.filter((d) => d.userId !== creatorId));
           setActiveCreator(null);
+
+          // 2. Perform Firestore cleanup side effect safely outside the state updater
+          const orphaned = designs.filter((d) => d.userId === creatorId);
+          if (orphaned.length > 0) {
+            import("firebase/firestore").then(async ({ deleteDoc, doc }) => {
+              const { db } = await import("../services/firebase");
+              for (const design of orphaned) {
+                await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
+              }
+            }).catch((e) => console.warn("Failed to delete orphaned designs:", e));
+          }
         }
       } catch (err) {
         console.warn("Failed to fetch creator profile:", err);
-        setActiveCreator(null);
+        if (active) {
+          setActiveCreator(null);
+        }
       }
     };
     fetchCreator();
+
+    return () => {
+      active = false;
+    };
   }, [designs[0]?.id, designs[0]?.userId, user?.id]);
 
   // Monitor screen size
