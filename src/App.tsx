@@ -433,7 +433,7 @@ export default function App() {
   }
 
   // Pre-load verification loader
-  if (loading) {
+  if (loading && !user) {
     return (
       <LoadingState
         id="application-preflight-loader"
@@ -444,8 +444,8 @@ export default function App() {
   }
 
   // DETERMINING WORKSPACE SCREEN VIEW
-  const isAuthenticated = !!firebaseUser && !!user && !onboardingRequired;
-  const isFullyAuthenticated = isAuthenticated && user?.profileCompleted;
+  const isAuthenticated = (!!firebaseUser || !!user) && !onboardingRequired;
+  const isFullyAuthenticated = isAuthenticated && !!user?.profileCompleted;
   const showNav = isFullyAuthenticated && currentPage !== "edit-profile" && currentPage !== "project-editor";
 
   return (
