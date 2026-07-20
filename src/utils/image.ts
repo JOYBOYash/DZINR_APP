@@ -12,7 +12,7 @@ export function compressImage(file: File, maxWidth = 1200, quality = 0.82): Prom
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         // Calculate new dimensions
         let width = img.width;

@@ -36,7 +36,6 @@ import {
   Spline,
   Crop,
   Frame,
-  Image,
   Ruler
 } from "lucide-react";
 import { UserProfile } from "../types";
@@ -924,7 +923,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
       const preloadList = designs.slice(0, 3);
       preloadList.forEach((d) => {
         if (d.imageUrl) {
-          const img = new Image();
+          const img = new window.Image();
           img.src = d.imageUrl;
         }
       });
