@@ -47,82 +47,187 @@ import { useToastStore } from "../stores/toast.store";
 import { Loader } from "./Loader";
 import { Button } from "./Button";
 
-interface MarqueeEmojiRowProps {
-  emojis: string[];
-  speed: number;
-  theme: "dark" | "light";
-  size?: number;
-}
-
-const MarqueeEmojiRow: React.FC<MarqueeEmojiRowProps> = ({ 
-  emojis, 
-  speed, 
-  theme,
-  size = 40
-}) => {
-  // Repeat the emojis array to ensure smooth continuous scroll
-  const repeatedEmojis = [...emojis, ...emojis, ...emojis, ...emojis, ...emojis, ...emojis];
-  
-  const baseOpacity = theme === "dark" 
-    ? "opacity-[0.05] hover:opacity-[0.14] transition-opacity duration-300" 
-    : "opacity-[0.09] hover:opacity-[0.20] transition-opacity duration-300";
-
-  const accentOpacity = theme === "dark"
-    ? "opacity-[0.10] hover:opacity-[0.22] transition-opacity duration-300"
-    : "opacity-[0.16] hover:opacity-[0.28] transition-opacity duration-300";
-
-  return (
-    <div className="flex whitespace-nowrap w-full overflow-hidden select-none pointer-events-none my-1">
-      <motion.div
-        className="flex gap-20 items-center select-none"
-        animate={{ x: ["-33.333%", "0%"] }}
-        transition={{
-          ease: "linear",
-          duration: speed,
-          repeat: Infinity,
-        }}
-      >
-        {repeatedEmojis.map((emoji, idx) => {
-          const isAccent = idx % 5 === 0;
-          return (
-            <span 
-              key={idx} 
-              className={`shrink-0 select-none text-center flex items-center justify-center transition-opacity duration-300 ${
-                isAccent ? accentOpacity : baseOpacity
-              }`}
-              style={{ fontSize: `${size}px`, lineHeight: 1 }}
-            >
-              {emoji}
-            </span>
-          );
-        })}
-      </motion.div>
-    </div>
-  );
-};
-
 interface AmbientBackgroundMarqueeProps {
   theme: "dark" | "light";
 }
 
 const AmbientBackgroundMarquee: React.FC<AmbientBackgroundMarqueeProps> = ({ theme }) => {
-  const row1 = ["🎨", "✨", "📱", "🎯", "🚀", "💻"];
-  const row2 = ["📐", "🛠️", "💖", "💡", "📊", "🌟"];
-  const row3 = ["⚡️", "🎨", "🧪", "📈", "❤️", "📏"];
-  const row4 = ["💻", "⚙️", "💯", "📌", "🏎️", "✨"];
-  const row5 = ["🎨", "📱", "🎯", "🚀", "💡", "💖"];
-  const row6 = ["📐", "🛠️", "📊", "🌟", "⚡️", "🧪"];
+  // Generate stable particles on mount
+  const particles = React.useMemo(() => {
+    const iconList = [
+      { icon: Palette },
+      { icon: Layers },
+      { icon: Compass },
+      { icon: Feather },
+      { icon: PenTool },
+      { icon: Shapes },
+      { icon: Paintbrush },
+      { icon: Figma },
+      { icon: SwatchBook },
+      { icon: Pipette },
+      { icon: Spline },
+      { icon: Frame },
+    ];
+
+    const tempParticles = [];
+    // We want around 18 stable elements for perfect density without visual clutter
+    const totalCount = 18;
+
+    for (let i = 0; i < totalCount; i++) {
+      const isLogo = i % 2 === 0; // 50% are the App's logo, 50% are premium design tools
+      const x = 5 + (i * 90) / totalCount + (Math.random() * 6 - 3); // nicely distributed to avoid overlapping clusters
+      const y = 8 + Math.random() * 84;
+      
+      // Categorize into depth classes (Fore, Mid, Back)
+      // Back: huge, very blurred, slow, low opacity (Bokeh effect)
+      // Mid: medium, slightly blurred, medium speed, normal opacity
+      // Fore: small, sharp, faster, higher opacity
+      const depthRand = Math.random();
+      let size = 48;
+      let blurClass = "";
+      let opacity = 0.05;
+      let depthOrder = 1;
+
+      if (depthRand < 0.25) {
+        // Back / Bokeh depth
+        size = 80 + Math.floor(Math.random() * 40); // 80px - 120px
+        blurClass = Math.random() > 0.5 ? "blur-[4px]" : "blur-[6px]";
+        opacity = theme === "dark" ? 0.025 : 0.045;
+        depthOrder = 1;
+      } else if (depthRand < 0.75) {
+        // Mid depth
+        size = 36 + Math.floor(Math.random() * 24); // 36px - 60px
+        blurClass = "blur-[1px]";
+        opacity = theme === "dark" ? 0.045 : 0.075;
+        depthOrder = 2;
+      } else {
+        // Fore depth (sharp and crisp)
+        size = 18 + Math.floor(Math.random() * 12); // 18px - 30px
+        blurClass = "blur-none";
+        opacity = theme === "dark" ? 0.075 : 0.11;
+        depthOrder = 3;
+      }
+
+      // Slightly decrease opacity for design tools
+      if (!isLogo) {
+        opacity *= 0.85;
+      }
+
+      const driftX = (Math.random() * 60 + 20) * (Math.random() > 0.5 ? 1 : -1);
+      const driftY = (Math.random() * 60 + 20) * (Math.random() > 0.5 ? 1 : -1);
+      const driftDuration = 12 + Math.random() * 15; // 12s - 27s
+      const rotationDuration = 25 + Math.random() * 35; // 25s - 60s
+      const rotationDir = Math.random() > 0.5 ? 360 : -360;
+
+      // Select a random icon
+      const iconIndex = Math.floor(Math.random() * iconList.length);
+      const selectedIcon = iconList[iconIndex].icon;
+
+      tempParticles.push({
+        id: i,
+        isLogo,
+        x,
+        y,
+        size,
+        blurClass,
+        opacity,
+        depthOrder,
+        driftX,
+        driftY,
+        driftDuration,
+        rotationDuration,
+        rotationDir,
+        icon: selectedIcon,
+      });
+    }
+
+    return tempParticles;
+  }, [theme]);
 
   return (
-    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none select-none flex items-center justify-center">
-      {/* Dense container rotated 45 degrees to align diagonal streams perfectly from top-left to bottom-right */}
-      <div className="absolute w-[220vw] h-[220vh] flex flex-col items-center justify-center gap-10 md:gap-14 rotate-[45deg] scale-105 opacity-100">
-        <MarqueeEmojiRow emojis={row1} speed={45} theme={theme} size={36} />
-        <MarqueeEmojiRow emojis={row2} speed={55} theme={theme} size={48} />
-        <MarqueeEmojiRow emojis={row3} speed={38} theme={theme} size={40} />
-        <MarqueeEmojiRow emojis={row4} speed={65} theme={theme} size={52} />
-        <MarqueeEmojiRow emojis={row5} speed={48} theme={theme} size={44} />
-        <MarqueeEmojiRow emojis={row6} speed={52} theme={theme} size={38} />
+    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none select-none">
+      {/* Immersive ambient colored nebula glow orbs */}
+      <div className="absolute inset-0 z-0">
+        {/* Soft crimson ambient orb (brand accent) in the top right corner */}
+        <div 
+          className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vh] rounded-full blur-[140px] transition-colors duration-1000"
+          style={{
+            background: "radial-gradient(circle, rgba(201, 0, 35, 0.05) 0%, rgba(201, 0, 35, 0) 70%)"
+          }}
+        />
+        {/* Soft warm/dark accent orb in bottom left corner */}
+        <div 
+          className="absolute bottom-[-15%] left-[-10%] w-[60vw] h-[60vh] rounded-full blur-[160px] transition-colors duration-1000"
+          style={{
+            background: theme === "dark"
+              ? "radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 80%)"
+              : "radial-gradient(circle, rgba(201, 0, 35, 0.02) 0%, rgba(201, 0, 35, 0) 80%)"
+          }}
+        />
+      </div>
+
+      {/* Floating particles layer */}
+      <div className="absolute inset-0 z-10 w-full h-full">
+        {particles.map((p) => {
+          const IconComponent = p.icon;
+
+          return (
+            <motion.div
+              key={p.id}
+              className={`absolute flex items-center justify-center ${p.blurClass}`}
+              style={{
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                width: p.size,
+                height: p.size,
+                opacity: p.opacity,
+                zIndex: p.depthOrder,
+              }}
+              animate={{
+                x: [0, p.driftX, 0],
+                y: [0, p.driftY, 0],
+              }}
+              transition={{
+                duration: p.driftDuration,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
+              <motion.div
+                className="w-full h-full flex items-center justify-center"
+                animate={{
+                  rotate: [0, p.rotationDir],
+                }}
+                transition={{
+                  duration: p.rotationDuration,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+              >
+                {p.isLogo ? (
+                  <img
+                    src="/logo-and-loader.svg"
+                    alt=""
+                    className="w-full h-full object-contain svg-theme-color"
+                    referrerPolicy="no-referrer"
+                    style={{
+                      // For a premium touch in dark mode, let some of the logos retain a subtle brand tint
+                      filter: theme === "dark" && p.id % 3 === 0 
+                        ? "drop-shadow(0 0 8px rgba(201, 0, 35, 0.3))" 
+                        : undefined
+                    }}
+                  />
+                ) : (
+                  <IconComponent
+                    size={p.size}
+                    strokeWidth={1.2}
+                    className={theme === "dark" ? "text-white" : "text-[#C90023]"}
+                  />
+                )}
+              </motion.div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
@@ -761,6 +866,15 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
           // Filter out their designs entirely so they do not appear in the feed.
           setDesigns((prev) => prev.filter((d) => d.userId !== creatorId));
           setActiveCreator(null);
+          
+          try {
+            const { deleteDoc, doc } = await import("firebase/firestore");
+            const { db } = await import("../services/firebase");
+            const orphanedDesigns = designs.filter(d => d.userId === creatorId);
+            for (const design of orphanedDesigns) {
+              await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
+            }
+          } catch (e) {}
         }
       } catch (err) {
         console.warn("Failed to fetch creator profile:", err);

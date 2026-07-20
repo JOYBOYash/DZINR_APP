@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Move, ZoomIn } from "lucide-react";
+import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Move, ZoomIn, Grid, Layers } from "lucide-react";
 import { UserProfile } from "../types";
 import { Design } from "../services/design.service";
 import { discoveryService } from "../services/discovery.service";
@@ -33,6 +33,41 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
   const [isUnsavingId, setIsUnsavingId] = useState<string | null>(null);
   const [designToDelete, setDesignToDelete] = useState<Design | null>(null);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
+  const [selectedStyle, setSelectedStyle] = useState<string>("All");
+  const [viewMode, setViewMode] = useState<"grouped" | "grid">("grouped");
+
+  // Get all unique styles that exist in the user's saved designs
+  const availableStyles = React.useMemo(() => {
+    if (!verifiedDesigns) return [];
+    const stylesSet = new Set<string>();
+    verifiedDesigns.forEach((design) => {
+      if (design.styles && Array.isArray(design.styles)) {
+        design.styles.forEach((style) => {
+          if (style) stylesSet.add(style);
+        });
+      }
+    });
+    return Array.from(stylesSet).sort();
+  }, [verifiedDesigns]);
+
+  // Group the designs by their style aesthetics
+  const groupedDesigns = React.useMemo(() => {
+    if (!verifiedDesigns) return {} as Record<string, Design[]>;
+    const groups: Record<string, Design[]> = {};
+    
+    verifiedDesigns.forEach((design) => {
+      const designStyles = (design.styles && design.styles.length > 0) ? design.styles : ["Minimalist"];
+      designStyles.forEach((style) => {
+        if (!groups[style]) {
+          groups[style] = [];
+        }
+        if (!groups[style].some((d) => d.id === design.id)) {
+          groups[style].push(design);
+        }
+      });
+    });
+    return groups;
+  }, [verifiedDesigns]);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(() =>
     typeof window !== "undefined" && window.innerWidth < 768
   );
@@ -382,75 +417,18 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
     };
   }, [lightboxDesign]);
 
-  // Set up the real-time subscription and unified profile verification
+  const usernamesRef = useRef<Record<string, string>>({});
+
+  // Set up the real-time subscription for saved designs
   useEffect(() => {
     if (!user?.id) return;
 
     let active = true;
 
-    const unsubscribe = discoveryService.subscribeUserSavedDesigns(user.id, async (rawDesigns) => {
+    const unsubscribe = discoveryService.subscribeUserSavedDesigns(user.id, (rawDesigns) => {
       if (!active) return;
-
-      if (rawDesigns.length === 0) {
-        setVerifiedDesigns([]);
-        setIsValidating(false);
-        return;
-      }
-
-      setIsValidating(true);
-
-      try {
-        const resolvedNames: Record<string, string> = { ...usernames };
-        const validDesigns: Design[] = [];
-
-        await Promise.all(
-          rawDesigns.map(async (design) => {
-            const creatorId = design.userId;
-            if (!creatorId) {
-              validDesigns.push(design);
-              return;
-            }
-
-            // Use cache if available
-            if (resolvedNames[creatorId]) {
-              validDesigns.push(design);
-              return;
-            }
-
-            try {
-              const profile = await userService.getUserProfile(creatorId);
-              if (profile) {
-                resolvedNames[creatorId] = profile.username;
-              } else {
-                resolvedNames[creatorId] = "Deleted Account";
-              }
-            } catch (err) {
-              console.warn("Error fetching user profile for verification:", creatorId, err);
-              resolvedNames[creatorId] = "Deleted Account";
-            }
-            validDesigns.push(design);
-          })
-        );
-
-        if (!active) return;
-
-        // Keep the exact same order as rawDesigns
-        const orderedValid = rawDesigns.filter((d) => 
-          validDesigns.some((vd) => vd.id === d.id)
-        );
-
-        setUsernames((prev) => ({ ...prev, ...resolvedNames }));
-        setVerifiedDesigns(orderedValid);
-      } catch (err) {
-        console.error("Design validation failed:", err);
-        if (active) {
-          setVerifiedDesigns([]);
-        }
-      } finally {
-        if (active) {
-          setIsValidating(false);
-        }
-      }
+      setVerifiedDesigns(rawDesigns);
+      setIsValidating(false);
     });
 
     return () => {
@@ -458,6 +436,68 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       unsubscribe();
     };
   }, [user?.id]);
+
+  // Fetch missing usernames in the background without blocking the subscription
+  useEffect(() => {
+    if (!verifiedDesigns || verifiedDesigns.length === 0) return;
+
+    const fetchMissingUsernames = async () => {
+      const uniqueCreatorIds = Array.from(
+        new Set(verifiedDesigns.map((d) => d.userId).filter(Boolean))
+      ) as string[];
+
+      const missingIds = uniqueCreatorIds.filter((id) => !usernamesRef.current[id]);
+
+      if (missingIds.length === 0) return;
+
+      // Optimistically lock to avoid duplicate parallel fetches
+      missingIds.forEach((id) => {
+        usernamesRef.current[id] = "Loading...";
+      });
+
+      const newNames: Record<string, string> = {};
+      const deletedIds: string[] = [];
+
+      await Promise.all(
+        missingIds.map(async (creatorId) => {
+          try {
+            const profile = await userService.getUserProfile(creatorId);
+            if (profile) {
+              newNames[creatorId] = profile.username;
+              usernamesRef.current[creatorId] = profile.username;
+            } else {
+              deletedIds.push(creatorId);
+              usernamesRef.current[creatorId] = "deleted_account";
+            }
+          } catch (err) {
+            console.warn("Error fetching user profile for verification:", creatorId, err);
+            deletedIds.push(creatorId);
+            usernamesRef.current[creatorId] = "deleted_account";
+          }
+        })
+      );
+
+      if (deletedIds.length > 0) {
+        setVerifiedDesigns((prev) => {
+          if (!prev) return prev;
+          return prev.filter((d) => !deletedIds.includes(d.userId));
+        });
+        
+        try {
+          const { deleteDoc, doc } = await import("firebase/firestore");
+          const { db } = await import("../services/firebase");
+          const orphanedDesigns = verifiedDesigns.filter(d => deletedIds.includes(d.userId));
+          for (const design of orphanedDesigns) {
+            await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
+          }
+        } catch (e) {}
+      }
+
+      setUsernames((prev) => ({ ...prev, ...newNames }));
+    };
+
+    fetchMissingUsernames();
+  }, [verifiedDesigns]);
 
   // Lazy loading (infinite scrolling) observer
   useEffect(() => {
@@ -542,74 +582,253 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
         </div>
       ) : (
         <div className="w-full flex flex-col">
-          <motion.div 
-            layout
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          >
-            <AnimatePresence mode="popLayout">
-              {displayedDesigns.map((design) => {
-                const creatorUsername = usernames[design.userId] || "Creator";
-                return (
-                  <motion.div
-                    key={design.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-                    className="group relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] cursor-pointer shadow-md hover:shadow-xl transition-all duration-300"
-                    onClick={() => setLightboxDesign(design)}
-                  >
-                    <img
-                      src={design.imageUrl}
-                      alt={design.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      referrerPolicy="no-referrer"
-                    />
-                    
-                    {/* Gradient shade overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
-                    
-                    {/* Overlay content */}
-                    <div className="absolute inset-0 flex flex-col justify-end p-4 text-left z-10 pointer-events-none">
-                      <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate">
-                        {design.category || "Design"}
-                      </span>
-                      <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight">
-                        {design.title}
-                      </h4>
-                      <span className="text-[10px] font-mono text-neutral-400 mt-1">
-                        @{creatorUsername}
-                      </span>
-                    </div>
+          {/* Aesthetic Controls & Mode Switcher */}
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-neutral-100 dark:border-white/5 pb-6">
+            {/* Horizontal Filter Row */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+              <button
+                onClick={() => setSelectedStyle("All")}
+                className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                  selectedStyle === "All"
+                    ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm"
+                    : "bg-neutral-100 text-[#555555] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
+                }`}
+              >
+                <span>All Aesthetics</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                  selectedStyle === "All"
+                    ? "bg-white/20 text-white dark:bg-black/10 dark:text-black"
+                    : "bg-neutral-200 text-neutral-600 dark:bg-white/10 dark:text-[#A9A9A9]"
+                }`}>
+                  {verifiedDesigns.length}
+                </span>
+              </button>
 
-                    {/* Direct Unsave button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDesignToDelete(design);
-                      }}
-                      disabled={isUnsavingId === design.id}
-                      className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
-                      title="Remove from saved archive"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </motion.div>
+              {availableStyles.map((style) => {
+                const count = groupedDesigns[style]?.length || 0;
+                return (
+                  <button
+                    key={style}
+                    onClick={() => setSelectedStyle(style)}
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                      selectedStyle === style
+                        ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm"
+                        : "bg-neutral-100 text-[#555555] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <span>{style}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                      selectedStyle === style
+                        ? "bg-white/20 text-white dark:bg-black/10 dark:text-black"
+                        : "bg-neutral-200 text-neutral-600 dark:bg-white/10 dark:text-[#A9A9A9]"
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
                 );
               })}
-            </AnimatePresence>
-          </motion.div>
-
-          {/* Infinite Scroll / Lazy Loading Sentinel */}
-          {verifiedDesigns.length > visibleCount && (
-            <div 
-              ref={loaderRef}
-              className="w-full py-12 flex justify-center items-center text-xs font-mono text-[#888888] dark:text-[#A9A9A9]"
-            >
-              <Loader id="lazy-loading-designs" size="sm" />
-              <span className="ml-2 animate-pulse">Loading more curations...</span>
             </div>
-          )}
+
+            {/* View Mode Switcher Toggle */}
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-white/5 p-1 rounded-xl self-start sm:self-auto">
+              <button
+                onClick={() => setViewMode("grouped")}
+                className={`p-2 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === "grouped"
+                    ? "bg-white dark:bg-white/10 text-[#171717] dark:text-white shadow-sm font-semibold"
+                    : "text-[#555555] dark:text-[#A9A9A9] hover:text-[#171717] dark:hover:text-white"
+                }`}
+                title="Group by Style Aesthetic"
+              >
+                <Layers size={14} />
+                <span className="hidden sm:inline">Grouped by Style</span>
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-white/10 text-[#171717] dark:text-white shadow-sm font-semibold"
+                    : "text-[#555555] dark:text-[#A9A9A9] hover:text-[#171717] dark:hover:text-white"
+                }`}
+                title="Continuous Grid View"
+              >
+                <Grid size={14} />
+                <span className="hidden sm:inline">Continuous Grid</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Design Cards Render Section */}
+          <AnimatePresence mode="wait">
+            {viewMode === "grouped" ? (
+              <motion.div
+                key="grouped-view"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-12"
+              >
+                {(Object.entries(groupedDesigns) as [string, Design[]][])
+                  .filter(([style]) => selectedStyle === "All" || style === selectedStyle)
+                  .map(([style, styleDesigns]) => (
+                    <div key={style} className="text-left">
+                      {/* Style Section Header */}
+                      <div className="mb-5 flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-2.5">
+                        <div className="flex items-center gap-3">
+                          <h2 className="text-sm font-bold font-space uppercase tracking-wider text-[#171717] dark:text-white">
+                            {style}
+                          </h2>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-white/10 text-[#555555] dark:text-[#A9A9A9] font-medium border border-neutral-200/55 dark:border-white/5">
+                            {styleDesigns.length} {styleDesigns.length === 1 ? "Inspiration" : "Inspirations"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Style Specific Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {styleDesigns.map((design) => {
+                          const creatorUsername = usernames[design.userId] || "loading...";
+                          return (
+                            <motion.div
+                              key={`${style}-${design.id}`}
+                              layout
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.9 }}
+                              transition={{ duration: 0.2 }}
+                              className="group relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] cursor-pointer shadow-md hover:shadow-xl transition-all duration-300"
+                              onClick={() => setLightboxDesign(design)}
+                            >
+                              <img
+                                src={design.imageUrl}
+                                alt={design.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                referrerPolicy="no-referrer"
+                              />
+                              
+                              {/* Gradient shade overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
+                              
+                              {/* Overlay content */}
+                              <div className="absolute inset-0 flex flex-col justify-end p-4 text-left z-10 pointer-events-none">
+                                <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate">
+                                  {design.category || "Design"}
+                                </span>
+                                <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight">
+                                  {design.title}
+                                </h4>
+                                <span className="text-[10px] font-mono text-neutral-400 mt-1">
+                                  @{creatorUsername}
+                                </span>
+                              </div>
+
+                              {/* Direct Unsave button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDesignToDelete(design);
+                                }}
+                                disabled={isUnsavingId === design.id}
+                                className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                                title="Remove from saved archive"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="grid-view"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.25 }}
+                className="w-full flex flex-col"
+              >
+                {/* Continuous Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {verifiedDesigns
+                    .filter((design) => {
+                      if (selectedStyle === "All") return true;
+                      const designStyles = (design.styles && design.styles.length > 0) ? design.styles : ["Minimalist"];
+                      return designStyles.includes(selectedStyle);
+                    })
+                    .slice(0, visibleCount)
+                    .map((design) => {
+                      const creatorUsername = usernames[design.userId] || "loading...";
+                      return (
+                        <motion.div
+                          key={`grid-${design.id}`}
+                          layout
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                          className="group relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] cursor-pointer shadow-md hover:shadow-xl transition-all duration-300"
+                          onClick={() => setLightboxDesign(design)}
+                        >
+                          <img
+                            src={design.imageUrl}
+                            alt={design.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                          />
+                          
+                          {/* Gradient shade overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
+                          
+                          {/* Overlay content */}
+                          <div className="absolute inset-0 flex flex-col justify-end p-4 text-left z-10 pointer-events-none">
+                            <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate">
+                              {design.category || "Design"}
+                            </span>
+                            <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight">
+                              {design.title}
+                            </h4>
+                            <span className="text-[10px] font-mono text-neutral-400 mt-1">
+                              @{creatorUsername}
+                            </span>
+                          </div>
+
+                          {/* Direct Unsave button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDesignToDelete(design);
+                            }}
+                            disabled={isUnsavingId === design.id}
+                            className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                            title="Remove from saved archive"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </motion.div>
+                      );
+                    })}
+                </div>
+
+                {/* Infinite Scroll / Lazy Loading Sentinel */}
+                {verifiedDesigns.filter((design) => {
+                  if (selectedStyle === "All") return true;
+                  const designStyles = (design.styles && design.styles.length > 0) ? design.styles : ["Minimalist"];
+                  return designStyles.includes(selectedStyle);
+                }).length > visibleCount && (
+                  <div 
+                    ref={loaderRef}
+                    className="w-full py-12 flex justify-center items-center text-xs font-mono text-[#888888] dark:text-[#A9A9A9]"
+                  >
+                    <Loader id="lazy-loading-designs" size="sm" />
+                    <span className="ml-2 animate-pulse">Loading more curations...</span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

@@ -108,7 +108,7 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidDesign(incoming()) && isValidId(designId);
       allow update: if isSignedIn();
-      allow delete: if isSignedIn() && existing().userId == request.auth.uid && isValidId(designId);
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || !exists(/databases/$(database)/documents/users/$(existing().userId))) && isValidId(designId);
     }
 
     match /projects/{projectId} {
