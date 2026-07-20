@@ -437,6 +437,8 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
     };
   }, [user?.id]);
 
+  const verifiedDesignsIdsString = verifiedDesigns?.map(d => `${d.id}-${d.userId}`).join(",") || "";
+
   // Fetch missing usernames in the background without blocking the subscription
   useEffect(() => {
     if (!verifiedDesigns || verifiedDesigns.length === 0) return;
@@ -480,24 +482,24 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       if (deletedIds.length > 0) {
         setVerifiedDesigns((prev) => {
           if (!prev) return prev;
+          const orphanedDesigns = prev.filter(d => deletedIds.includes(d.userId));
+          if (orphanedDesigns.length > 0) {
+            import("firebase/firestore").then(async ({ deleteDoc, doc }) => {
+              const { db } = await import("../services/firebase");
+              for (const design of orphanedDesigns) {
+                await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
+              }
+            }).catch((e) => console.warn("Failed to delete orphaned designs:", e));
+          }
           return prev.filter((d) => !deletedIds.includes(d.userId));
         });
-        
-        try {
-          const { deleteDoc, doc } = await import("firebase/firestore");
-          const { db } = await import("../services/firebase");
-          const orphanedDesigns = verifiedDesigns.filter(d => deletedIds.includes(d.userId));
-          for (const design of orphanedDesigns) {
-            await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
-          }
-        } catch (e) {}
       }
 
       setUsernames((prev) => ({ ...prev, ...newNames }));
     };
 
     fetchMissingUsernames();
-  }, [verifiedDesigns]);
+  }, [verifiedDesignsIdsString]);
 
   // Lazy loading (infinite scrolling) observer
   useEffect(() => {

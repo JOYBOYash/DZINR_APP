@@ -539,7 +539,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   const [lastDocCursor, setLastDocCursor] = useState<any>(null);
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [creatorProfiles, setCreatorProfiles] = useState<Record<string, UserProfile>>({});
+  const creatorProfilesRef = useRef<Record<string, UserProfile>>({});
   const [activeCreator, setActiveCreator] = useState<UserProfile | null>(null);
   const [expandedCard, setExpandedCard] = useState<Design | null>(null);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
@@ -850,8 +850,14 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
       return;
     }
 
-    if (creatorProfiles[creatorId]) {
-      setActiveCreator(creatorProfiles[creatorId]);
+    if (user && creatorId === user.id) {
+      setActiveCreator(user);
+      return;
+    }
+
+    const cached = creatorProfilesRef.current[creatorId];
+    if (cached) {
+      setActiveCreator(cached);
       return;
     }
 
@@ -859,22 +865,30 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
       try {
         const profile = await userService.getUserProfile(creatorId);
         if (profile) {
-          setCreatorProfiles((prev) => ({ ...prev, [creatorId]: profile }));
-          setActiveCreator(profile);
+          creatorProfilesRef.current[creatorId] = profile;
+          // Verify we are still on the same card when the async fetch completes
+          setDesigns((currentDesigns) => {
+            if (currentDesigns.length > 0 && currentDesigns[0].userId === creatorId) {
+              setActiveCreator(profile);
+            }
+            return currentDesigns;
+          });
         } else {
           // Creator profile doesn't exist anymore (deleted user).
           // Filter out their designs entirely so they do not appear in the feed.
-          setDesigns((prev) => prev.filter((d) => d.userId !== creatorId));
-          setActiveCreator(null);
-          
-          try {
-            const { deleteDoc, doc } = await import("firebase/firestore");
-            const { db } = await import("../services/firebase");
-            const orphanedDesigns = designs.filter(d => d.userId === creatorId);
-            for (const design of orphanedDesigns) {
-              await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
+          setDesigns((prev) => {
+            const orphaned = prev.filter((d) => d.userId === creatorId);
+            if (orphaned.length > 0) {
+              import("firebase/firestore").then(async ({ deleteDoc, doc }) => {
+                const { db } = await import("../services/firebase");
+                for (const design of orphaned) {
+                  await deleteDoc(doc(db, "designs", design.id)).catch(() => {});
+                }
+              }).catch((e) => console.warn("Failed to delete orphaned designs:", e));
             }
-          } catch (e) {}
+            return prev.filter((d) => d.userId !== creatorId);
+          });
+          setActiveCreator(null);
         }
       } catch (err) {
         console.warn("Failed to fetch creator profile:", err);
@@ -882,7 +896,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
       }
     };
     fetchCreator();
-  }, [designs, creatorProfiles]);
+  }, [designs[0]?.id, designs[0]?.userId, user?.id]);
 
   // Monitor screen size
   useEffect(() => {
@@ -946,6 +960,12 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
     fetchFeedBatch(true);
   }, [user.id]);
 
+  // Ref to hold the latest onRefreshStats to prevent tearing down online event listeners
+  const onRefreshStatsRef = useRef(onRefreshStats);
+  useEffect(() => {
+    onRefreshStatsRef.current = onRefreshStats;
+  }, [onRefreshStats]);
+
   // Sync offline queue automatically when coming back online
   useEffect(() => {
     const syncOfflineQueue = async () => {
@@ -965,7 +985,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
         localStorage.removeItem("dzinr_offline_swipes");
         setSyncingOffline(false);
         showToast(`Synchronized ${successCount} offline reviews successfully!`, "success");
-        if (onRefreshStats) onRefreshStats();
+        if (onRefreshStatsRef.current) onRefreshStatsRef.current();
       }
     };
 
@@ -973,7 +993,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
     syncOfflineQueue();
 
     return () => window.removeEventListener("online", syncOfflineQueue);
-  }, [onRefreshStats]);
+  }, []);
 
    // Handle Swipe interaction
   const handleSwipe = async (action: "left" | "right" | "save", designId: string) => {
