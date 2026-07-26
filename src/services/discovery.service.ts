@@ -395,6 +395,10 @@ export const discoveryService = {
       const likeId = `${userId}_${designId}`;
       const likeRef = doc(db, "likes", likeId);
       const likeSnap = await getDoc(likeRef);
+
+      const swipeRef = doc(db, "swipes", likeId);
+      const swipeSnap = await getDoc(swipeRef);
+      const isSwipedRight = swipeSnap.exists() && swipeSnap.data()?.action === "right";
       
       const designRef = doc(db, "designs", designId);
       const designSnap = await getDoc(designRef);
@@ -407,9 +411,10 @@ export const discoveryService = {
         const stats = (data.stats || {}) as any;
         const currentLikes = stats.likes || stats.rightSwipes || 0;
 
-        if (likeSnap.exists()) {
-          // Remove like
-          await deleteDoc(likeRef);
+        if (likeSnap.exists() || isSwipedRight) {
+          // Remove like from both likes and swipes collections if present
+          if (likeSnap.exists()) await deleteDoc(likeRef).catch(() => {});
+          if (isSwipedRight) await deleteDoc(swipeRef).catch(() => {});
           newCount = Math.max(0, currentLikes - 1);
           isLiked = false;
         } else {
@@ -804,18 +809,22 @@ export const discoveryService = {
 
       await setDoc(commentRef, newComment);
 
-      // Increment commentsCount in design stats
-      const designRef = doc(db, "designs", designId);
-      const designSnap = await getDoc(designRef);
-      if (designSnap.exists()) {
-        const designData = designSnap.data() as Design;
-        const stats = (designData.stats || {}) as any;
-        const commentsCount = (stats.commentsCount || 0) + 1;
-        
-        await updateDoc(designRef, {
-          "stats.commentsCount": commentsCount,
-          "stats.updatedAt": new Date().toISOString(),
-        });
+      // Try to increment commentsCount in design stats (safely catch errors if design update fails)
+      try {
+        const designRef = doc(db, "designs", designId);
+        const designSnap = await getDoc(designRef);
+        if (designSnap.exists()) {
+          const designData = designSnap.data() as Design;
+          const stats = (designData.stats || {}) as any;
+          const commentsCount = (stats.commentsCount || 0) + 1;
+          
+          await updateDoc(designRef, {
+            "stats.commentsCount": commentsCount,
+            "stats.updatedAt": new Date().toISOString(),
+          });
+        }
+      } catch (statsErr) {
+        console.warn("Could not update design commentsCount stat:", statsErr);
       }
 
       return newComment;
@@ -833,15 +842,17 @@ export const discoveryService = {
     callback: (comments: DesignComment[]) => void
   ) {
     try {
+      // Omit orderBy to avoid requiring a custom composite index in Firestore
       const q = query(
         collection(db, "design_comments"),
-        where("designId", "==", designId),
-        orderBy("createdAt", "asc")
+        where("designId", "==", designId)
       );
       return onSnapshot(
         q,
         (snapshot) => {
           const comments: DesignComment[] = snapshot.docs.map((d) => d.data() as DesignComment);
+          // Sort comments chronologically in memory
+          comments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           callback(comments);
         },
         (err) => {
