@@ -22,6 +22,7 @@ interface DesignerProfileModalProps {
   designerId: string;
   onClose: () => void;
   showToast: (message: string, type: "success" | "error" | "info") => void;
+  onOpenProfile?: (userId: string) => void;
 }
 
 export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
@@ -30,6 +31,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
   designerId,
   onClose,
   showToast,
+  onOpenProfile,
 }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [publishedDesigns, setPublishedDesigns] = useState<Design[]>([]);
@@ -58,6 +60,13 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
   const [showCoverSelector, setShowCoverSelector] = useState(false);
   const [updatingCover, setUpdatingCover] = useState(false);
 
+  // Reset lightbox and active boards when designerId changes
+  useEffect(() => {
+    setLightboxDesign(null);
+    setSelectedMoodboard(null);
+    setActiveTab("projects");
+  }, [designerId]);
+
   // Current logged in user ID
   const currentUserId = auth.currentUser?.uid;
 
@@ -76,8 +85,10 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
         setProfile(userProfile);
 
         if (userProfile) {
+          const targetUid = userProfile.id;
+
           // 2. Fetch Designs
-          const allDesigns = await designService.getDesigns(designerId);
+          const allDesigns = await designService.getDesigns(targetUid);
           if (!active) return;
           const published = allDesigns.filter((d) => d.status === "published");
           setPublishedDesigns(published);
@@ -87,7 +98,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
           const { collection, query, where, getDocs, doc, getDoc } = await import("firebase/firestore");
           const moodboardsQuery = query(
             collection(db, "moodboards"),
-            where("creatorId", "==", designerId),
+            where("creatorId", "==", targetUid),
             where("privacy", "==", "public")
           );
           const moodboardSnap = await getDocs(moodboardsQuery);
@@ -101,7 +112,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
           // 4. Fetch follow status
           const currentUser = auth.currentUser;
           if (currentUser) {
-            const followId = `${currentUser.uid}_${designerId}`;
+            const followId = `${currentUser.uid}_${targetUid}`;
             const followRef = doc(db, "follows", followId);
             const followSnap = await getDoc(followRef);
             if (active) {
@@ -112,7 +123,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
           // 5. Fetch followers count
           const followersQuery = query(
             collection(db, "follows"),
-            where("followedId", "==", designerId)
+            where("followedId", "==", targetUid)
           );
           const followersSnap = await getDocs(followersQuery);
           if (active) {
@@ -361,7 +372,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
       <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-6 pb-20">
         
         {/* Banner with Ambient Aurora Glow */}
-        <div className="h-56 sm:h-72 w-full relative overflow-hidden rounded-3xl bg-neutral-900 border border-white/10 shadow-2xl">
+        <div className="h-48 sm:h-64 w-full relative overflow-hidden rounded-3xl bg-neutral-900 border border-white/10 shadow-2xl mb-4 sm:mb-6">
           {profile?.coverUrl ? (
             <>
               <img 
@@ -404,12 +415,12 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
             </button>
           </div>
         ) : (
-          <div className="px-2 sm:px-4 pb-12 pt-4 relative z-10">
+          <div className="px-2 sm:px-4 pb-12 pt-2 relative z-10">
             
             {/* Avatar & Header Profile Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-neutral-200 dark:border-white/10">
-              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-[#121212] bg-[#1E1E1E] flex items-center justify-center shadow-2xl shrink-0 -mt-14 sm:-mt-16">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-[#121212] bg-[#1E1E1E] flex items-center justify-center shadow-2xl shrink-0 -mt-10 sm:-mt-12 z-10">
                   {profile.avatarUrl ? (
                     <img
                       src={profile.avatarUrl}
@@ -427,7 +438,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
                   )}
                 </div>
 
-                <div className="text-left pt-2 sm:pt-0">
+                <div className="text-left pt-2">
                   <div className="flex flex-wrap items-center gap-3">
                     <h1 className={`text-2xl sm:text-3xl font-bold font-space tracking-tight leading-none ${
                       theme === "dark" ? "text-white" : "text-[#171717]"
@@ -438,7 +449,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
                       {profile.role || "Brand Designer"}
                     </span>
                   </div>
-                  <p className={`text-sm font-sans mt-3 max-w-xl leading-relaxed ${
+                  <p className={`text-sm font-sans mt-2.5 max-w-xl leading-relaxed ${
                     theme === "dark" ? "text-neutral-400" : "text-neutral-600"
                   }`}>
                     {profile.bio || "Crafting elegant digital layouts and visual mockups."}
@@ -450,7 +461,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
               <div className="flex flex-wrap items-center gap-2.5">
                 {/* Total Likes Received Pill */}
                 <div className={`px-3.5 py-2 rounded-xl border flex items-center gap-2 h-10 ${
-                  theme === "dark" ? "bg-white/5 border-white/10" : "bg-white border-neutral-200 text-[#171717]"
+                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-white border-neutral-200 text-[#171717]"
                 }`} title="Total Likes Received">
                   <Heart size={15} className="fill-rose-500 text-rose-500" />
                   <span className="text-sm font-bold font-space leading-none">
@@ -460,7 +471,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
 
                 {/* Followers Count Pill */}
                 <div className={`px-3.5 py-2 rounded-xl border flex items-center gap-2 h-10 ${
-                  theme === "dark" ? "bg-white/5 border-white/10" : "bg-white border-neutral-200 text-[#171717]"
+                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-white border-neutral-200 text-[#171717]"
                 }`} title="Followers">
                   <Users size={15} className="text-[#3b82f6]" />
                   <span className="text-sm font-bold font-space leading-none">
@@ -470,7 +481,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
 
                 {/* Published Projects Pill */}
                 <div className={`px-3.5 py-2 rounded-xl border flex items-center gap-2 h-10 ${
-                  theme === "dark" ? "bg-white/5 border-white/10" : "bg-white border-neutral-200 text-[#171717]"
+                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-white border-neutral-200 text-[#171717]"
                 }`} title="Published Projects">
                   <Laptop size={15} className="text-accent" />
                   <span className="text-sm font-bold font-space leading-none">
@@ -834,8 +845,15 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
             >
               {/* Creator Profile Header */}
               <div className="p-4 border-b border-white/10 flex items-center justify-between gap-3 shrink-0 bg-[#1E1E1E]">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full border border-white/10 bg-[#121212] overflow-hidden shrink-0 flex items-center justify-center">
+                <div 
+                  className={`flex items-center gap-3 min-w-0 ${onOpenProfile && profile?.id ? "cursor-pointer group/creator hover:opacity-85 transition-opacity" : ""}`}
+                  onClick={() => {
+                    if (onOpenProfile && profile?.id) {
+                      onOpenProfile(profile.id);
+                    }
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-full border border-white/10 bg-[#121212] overflow-hidden shrink-0 flex items-center justify-center transition-colors group-hover/creator:border-accent">
                     {profile?.avatarUrl ? (
                       <img src={profile.avatarUrl} alt={profile.username} className="w-full h-full object-cover" />
                     ) : (
@@ -845,7 +863,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
                     )}
                   </div>
                   <div className="min-w-0 text-left">
-                    <p className="text-sm font-bold font-space text-white truncate">
+                    <p className="text-sm font-bold font-space text-white truncate group-hover/creator:text-accent transition-colors">
                       @{profile?.username || "creator"}
                     </p>
                     <span className="text-[10px] font-mono text-neutral-400 block">
@@ -907,7 +925,7 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
 
                 {/* Description */}
                 {lightboxDesign.description && (
-                  <div className="pt-5 border-t border-white/10">
+                  <div>
                     <h4 className="text-[10px] font-mono uppercase tracking-wider mb-2 text-neutral-400">
                       Description
                     </h4>
@@ -919,7 +937,12 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
 
                 {/* Comments & Feedback */}
                 <div className="pt-5 border-t border-white/10">
-                  <DesignCommentsSection design={lightboxDesign} user={profile || { id: currentUserId || "" } as any} theme="dark" />
+                  <DesignCommentsSection
+                    design={lightboxDesign}
+                    user={profile || { id: currentUserId || "" } as any}
+                    theme="dark"
+                    onOpenProfile={onOpenProfile}
+                  />
                 </div>
               </div>
             </div>

@@ -16,6 +16,7 @@ import { MoodboardSelectionModal } from "./MoodboardSelectionModal";
 import { CreateMoodboardModal } from "./CreateMoodboardModal";
 import { DesignerProfileModal } from "./DesignerProfileModal";
 import { DesignCommentsSection } from "./DesignCommentsSection";
+import { ConfirmationModal } from "./ConfirmationModal";
 
 interface SavedVaultViewProps {
   user: UserProfile;
@@ -169,6 +170,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(() =>
     typeof window !== "undefined" && window.innerWidth < 768
   );
+  const [isPanelFullyExpanded, setIsPanelFullyExpanded] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const imageAreaRef = React.useRef<HTMLDivElement>(null);
@@ -186,8 +188,11 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
     if (lightboxDesign) {
       const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
       setIsPanelCollapsed(isMobile);
+      setIsPanelFullyExpanded(false);
       setZoomScale(1);
       setPanOffset({ x: 0, y: 0 });
+    } else {
+      setIsPanelFullyExpanded(false);
     }
   }, [lightboxDesign]);
 
@@ -1610,8 +1615,8 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               ref={imageAreaRef}
               className={`flex-1 relative flex items-center justify-center select-none h-full md:h-full overflow-hidden transition-all duration-300 ${
                 !isPanelCollapsed 
-                  ? "p-4 pb-[calc(324px+env(safe-area-inset-bottom,0px))] md:p-0" 
-                  : "p-4 pb-[calc(74px+env(safe-area-inset-bottom,0px))] md:p-0"
+                  ? (isPanelFullyExpanded ? "p-4 pb-[calc(100vh-120px)] md:p-0" : "p-4 pb-[314px] md:p-0")
+                  : "p-4 pb-[74px] md:p-0"
               }`}
               onClick={() => setLightboxDesign(null)}
             >
@@ -1754,9 +1759,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 </div>
 
                 {/* Likes Button */}
-                <div className={`pt-4 border-t ${
-                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                }`}>
+                <div>
                   <button
                     onClick={handleToggleLike}
                     disabled={likeLoading}
@@ -1775,9 +1778,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
 
                 {/* Category & Style Tags Section (Separate from Likes) */}
                 {(lightboxDesign.category || lightboxDesign.format || (lightboxDesign.styles && lightboxDesign.styles.length > 0)) && (
-                  <div className={`pt-5 border-t ${
-                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                  }`}>
+                  <div>
                     <h4 className={`text-[10px] font-mono uppercase tracking-wider mb-2.5 ${
                       theme === "dark" ? "text-neutral-400" : "text-neutral-500"
                     }`}>
@@ -1816,9 +1817,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 )}
 
                 {lightboxDesign.description && (
-                  <div className={`pt-5 border-t ${
-                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                  }`}>
+                  <div>
                     <h4 className={`text-[10px] font-mono uppercase tracking-wider mb-2.5 ${
                       theme === "dark" ? "text-neutral-400" : "text-neutral-500"
                     }`}>
@@ -1836,7 +1835,12 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 <div className={`pt-5 border-t ${
                   theme === "dark" ? "border-divider-dark" : "border-neutral-100"
                 }`}>
-                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                  <DesignCommentsSection
+                    design={lightboxDesign}
+                    user={user}
+                    theme={theme}
+                    onOpenProfile={(id) => setActiveDesignerId(id)}
+                  />
                 </div>
               </div>
             </motion.div>
@@ -1844,11 +1848,11 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
             {/* MOBILE Bottom Panel - WhatsApp Inspector Pane (Vertical Bottom Sheet) */}
             <motion.div
               animate={{ 
-                height: isPanelCollapsed ? 0 : "240px",
+                height: isPanelCollapsed ? 0 : (isPanelFullyExpanded ? "calc(100vh - 120px)" : "240px"),
                 opacity: isPanelCollapsed ? 0 : 1
               }}
               transition={{ type: "spring", damping: 30, stiffness: 250 }}
-              className={`flex md:hidden absolute inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom,0px))] flex-col z-40 overflow-hidden rounded-t-3xl transition-colors duration-300 ${
+              className={`flex md:hidden absolute inset-x-0 bottom-[64px] flex-col z-40 overflow-hidden rounded-t-3xl transition-colors duration-300 ${
                 theme === "dark" 
                   ? "bg-[#1E1E1E] border-t border-divider-dark text-white shadow-[0_-15px_40px_rgba(0,0,0,0.5)]" 
                   : "bg-white border-t border-neutral-200 text-[#171717] shadow-[0_-15px_40px_rgba(0,0,0,0.1)]"
@@ -1856,12 +1860,18 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header with Creator Info */}
-              <div className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 ${
-                theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-              }`}>
+              <div 
+                onClick={() => setIsPanelFullyExpanded(!isPanelFullyExpanded)}
+                className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 cursor-pointer ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}
+              >
                 <div 
                   className="flex items-center gap-2.5 min-w-0 cursor-pointer group/creator hover:opacity-85 transition-opacity"
-                  onClick={() => setActiveDesignerId(lightboxDesign.userId)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveDesignerId(lightboxDesign.userId);
+                  }}
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 transition-colors group-hover/creator:border-accent ${
                     theme === "dark"
@@ -1883,19 +1893,44 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* Drag Handle Indicator */}
+                <div className="hidden xs:flex flex-col items-center gap-0.5 pointer-events-none">
+                  <div className={`w-8 h-1 rounded-full ${theme === "dark" ? "bg-white/20" : "bg-neutral-300"}`} />
+                  <span className={`text-[8px] font-mono tracking-wider uppercase ${theme === "dark" ? "text-neutral-500" : "text-neutral-400"}`}>
+                    {isPanelFullyExpanded ? "Tap to Shrink" : "Tap to Expand"}
+                  </span>
+                </div>
                 
-                {/* Collapse Button inside Panel */}
-                <button
-                  onClick={() => setIsPanelCollapsed(true)}
-                  className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
-                    theme === "dark"
-                      ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
-                      : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
-                  }`}
-                  title="Collapse panel"
-                >
-                  <ChevronDown size={16} />
-                </button>
+                {/* Collapse/Expand Buttons inside Panel */}
+                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setIsPanelFullyExpanded(!isPanelFullyExpanded)}
+                    className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
+                      theme === "dark"
+                        ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
+                        : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
+                    }`}
+                    title={isPanelFullyExpanded ? "Shrink details" : "Fully expand details"}
+                  >
+                    {isPanelFullyExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsPanelCollapsed(true);
+                      setIsPanelFullyExpanded(false);
+                    }}
+                    className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
+                      theme === "dark"
+                        ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
+                        : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
+                    }`}
+                    title="Hide Panel"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               {/* Information Body */}
@@ -1930,9 +1965,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
 
                 {/* Mobile Tags Section */}
                 {(lightboxDesign.category || lightboxDesign.format || (lightboxDesign.styles && lightboxDesign.styles.length > 0)) && (
-                  <div className={`pt-3 border-t ${
-                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                  }`}>
+                  <div>
                     <div className="flex flex-wrap gap-1.5">
                       {lightboxDesign.category && (
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider border ${
@@ -1965,9 +1998,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                   </div>
                 )}
                 {lightboxDesign.description && (
-                  <div className={`pt-3 border-t ${
-                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                  }`}>
+                  <div>
                     <h4 className={`text-[9px] font-mono uppercase tracking-wider mb-1 ${
                       theme === "dark" ? "text-neutral-400" : "text-neutral-500"
                     }`}>
@@ -1985,7 +2016,12 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 <div className={`pt-3 border-t ${
                   theme === "dark" ? "border-divider-dark" : "border-neutral-100"
                 }`}>
-                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                  <DesignCommentsSection
+                    design={lightboxDesign}
+                    user={user}
+                    theme={theme}
+                    onOpenProfile={(id) => setActiveDesignerId(id)}
+                  />
                 </div>
               </div>
             </motion.div>
@@ -1993,36 +2029,23 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
         )}
       </AnimatePresence>
       {/* Deletion Confirmation Modal */}
-      <Modal
-        id="delete-design-modal"
+      <ConfirmationModal
         show={!!designToDelete}
-        onClose={() => setDesignToDelete(null)}
+        theme={theme}
         title="Remove Inspiration"
-        size="sm"
-        footer={
-          <div className="flex gap-3 w-full">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => setDesignToDelete(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              className="flex-1"
-              onClick={() => designToDelete && handleUnsave(designToDelete.id)}
-              disabled={designToDelete ? isUnsavingId === designToDelete.id : false}
-            >
-              Confirm Delete
-            </Button>
-          </div>
+        iconType="trash"
+        variant="danger"
+        confirmText="Remove"
+        cancelText="Cancel"
+        isLoading={designToDelete ? isUnsavingId === designToDelete.id : false}
+        onConfirm={() => designToDelete && handleUnsave(designToDelete.id)}
+        onClose={() => setDesignToDelete(null)}
+        description={
+          <p>
+            Are you sure you want to remove <span className="font-semibold text-white">{designToDelete?.title}</span> from your saved vault? This action cannot be undone.
+          </p>
         }
-      >
-        <p className="text-sm text-[#555555] dark:text-[#A9A9A9]">
-          Are you sure you want to remove <span className="font-semibold text-[#171717] dark:text-white">{designToDelete?.title}</span> from your saved vault? This action cannot be undone.
-        </p>
-      </Modal>
+      />
 
       {/* Moodboard Modals */}
       <MoodboardSelectionModal
@@ -2134,49 +2157,36 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       </Modal>
 
       {/* Delete Moodboard Confirmation Modal */}
-      <Modal
-        id="delete-moodboard-modal"
+      <ConfirmationModal
         show={!!boardToDelete}
-        onClose={() => setBoardToDelete(null)}
+        theme={theme}
         title="Delete Moodboard"
-        size="sm"
-        footer={
-          <div className="flex gap-3 w-full">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => setBoardToDelete(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              className="flex-1 bg-[#C90023] hover:bg-red-700 text-white font-bold"
-              onClick={async () => {
-                if (!boardToDelete) return;
-                try {
-                  await discoveryService.deleteMoodboard(boardToDelete.id);
-                  showToast(`Moodboard "${boardToDelete.name}" deleted successfully.`, "success");
-                  if (activeMoodboard && activeMoodboard.id === boardToDelete.id) {
-                    setActiveMoodboard(null);
-                  }
-                } catch (err) {
-                  console.error(err);
-                  showToast("Could not delete moodboard. Try again.", "error");
-                } finally {
-                  setBoardToDelete(null);
-                }
-              }}
-            >
-              Delete
-            </Button>
-          </div>
+        iconType="trash"
+        variant="danger"
+        confirmText="Delete Board"
+        cancelText="Cancel"
+        onConfirm={async () => {
+          if (!boardToDelete) return;
+          try {
+            await discoveryService.deleteMoodboard(boardToDelete.id);
+            showToast(`Moodboard "${boardToDelete.name}" deleted successfully.`, "success");
+            if (activeMoodboard && activeMoodboard.id === boardToDelete.id) {
+              setActiveMoodboard(null);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast("Could not delete moodboard. Try again.", "error");
+          } finally {
+            setBoardToDelete(null);
+          }
+        }}
+        onClose={() => setBoardToDelete(null)}
+        description={
+          <p>
+            Are you sure you want to delete <span className="font-semibold text-white uppercase">"{boardToDelete?.name}"</span>? All layout inspirations inside will remain in your saved vault, but this board will be permanently removed.
+          </p>
         }
-      >
-        <p className="text-sm text-[#555555] dark:text-[#A9A9A9] leading-relaxed">
-          Are you sure you want to delete the moodboard <span className="font-semibold text-[#171717] dark:text-white uppercase">"{boardToDelete?.name}"</span>? All layout inspirations inside will remain in your saved vault, but this board will be permanently removed. This action cannot be undone.
-        </p>
-      </Modal>
+      />
 
       {activeDesignerId && (
         <DesignerProfileModal
@@ -2185,6 +2195,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
           designerId={activeDesignerId}
           onClose={() => setActiveDesignerId(null)}
           showToast={showToast}
+          onOpenProfile={(id) => setActiveDesignerId(id)}
         />
       )}
     </div>

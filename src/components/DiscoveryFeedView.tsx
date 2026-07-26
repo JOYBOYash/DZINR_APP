@@ -1607,6 +1607,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
         designerId={activeDesignerId || ""}
         onClose={() => setActiveDesignerId(null)}
         showToast={showToast}
+        onOpenProfile={(id) => setActiveDesignerId(id)}
       />
     </>
   );

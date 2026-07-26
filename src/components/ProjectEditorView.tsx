@@ -743,7 +743,7 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
           </motion.div>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#ECECEC] dark:border-white/10 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
           <button 
             onClick={() => editingDraft ? setShowCancelConfirm(true) : onBack()} 
@@ -1225,7 +1225,7 @@ export const ProjectEditorView: React.FC<ProjectEditorViewProps> = ({ user, them
                     maxSelected={3}
                   />
 
-                  <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-[#ECECEC] dark:border-white/10">
+                  <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-2">
                     <Button
                       onClick={saveDraftEdits}
                       variant="secondary"

@@ -50,7 +50,7 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       {show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4">
           {/* Backdrop blur - only blur the first/outer backdrop, make subsequent ones transparent */}
           <motion.div
             initial={{ opacity: 0 }}

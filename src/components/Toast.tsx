@@ -17,7 +17,7 @@ interface ToastProps {
 
 export function ToastContainer({ toasts, removeToast }: ToastProps) {
   return (
-    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 max-w-[calc(100vw-32px)] sm:max-w-xs w-full pointer-events-none">
+    <div className="fixed top-4 right-4 z-[99999] flex flex-col gap-2 max-w-[calc(100vw-32px)] sm:max-w-xs w-full pointer-events-none">
       <AnimatePresence>
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} removeToast={removeToast} />

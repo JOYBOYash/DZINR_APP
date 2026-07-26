@@ -26,6 +26,8 @@ import { UserProfile } from "../types";
 import { formatLikesCount } from "../utils/likes";
 import { designService, Design } from "../services/design.service";
 import { DesignCommentsSection } from "./DesignCommentsSection";
+import { DesignerProfileModal } from "./DesignerProfileModal";
+import { ConfirmationModal } from "./ConfirmationModal";
 import { zipImportService } from "../services/zipImport.service";
 import { cloudinaryService } from "../services/cloudinary.service";
 import { imageCompressionService } from "../services/imageCompression.service";
@@ -90,6 +92,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   const [activeTab, setActiveTab] = useState<Tab>("drafts");
   const [draftToDelete, setDraftToDelete] = useState<Design | null>(null);
+  const [activeDesignerId, setActiveDesignerId] = useState<string | null>(null);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   // Lightbox and interactive preview states
@@ -98,6 +101,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(() =>
     typeof window !== "undefined" && window.innerWidth < 768
   );
+  const [isPanelFullyExpanded, setIsPanelFullyExpanded] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const imageAreaRef = useRef<HTMLDivElement>(null);
@@ -172,9 +176,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     if (lightboxDesign) {
       const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
       setIsPanelCollapsed(isMobile);
+      setIsPanelFullyExpanded(false);
       setZoomScale(1);
       setPanOffset({ x: 0, y: 0 });
       setActiveSlideIdx(0);
+    } else {
+      setIsPanelFullyExpanded(false);
     }
   }, [lightboxDesign]);
 
@@ -539,6 +546,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["designs", user.id] });
       removeDraft(id);
+      if (lightboxDesign?.id === id) {
+        setLightboxDesign(null);
+      }
       showToast("Design removed.", "success");
     },
   });
@@ -552,6 +562,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       queryClient.invalidateQueries({ queryKey: ["designs", user.id] });
       if (status === "draft") {
         ids.forEach(id => removeDraft(id));
+      }
+      if (lightboxDesign && ids.includes(lightboxDesign.id)) {
+        setLightboxDesign(null);
       }
       clearSelection();
       setSelectedPublished(new Set());
@@ -935,84 +948,58 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       )}
 
       {/* Deletion dialog Modal */}
-      <Modal
-        id="delete-draft-modal"
+      <ConfirmationModal
         show={!!draftToDelete}
+        theme={theme}
+        title="Delete Design"
+        iconType="trash"
+        variant="danger"
+        confirmText="Delete Design"
+        cancelText="Cancel"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (draftToDelete) {
+            deleteMutation.mutate({
+              id: draftToDelete.id,
+              status: draftToDelete.status,
+            });
+          }
+          setDraftToDelete(null);
+        }}
         onClose={() => setDraftToDelete(null)}
-        title="Remove Design Frame?"
-        size="sm"
-        footer={
-          <>
-            <Button
-              type="button"
-              onClick={() => setDraftToDelete(null)}
-              variant="secondary"
-              className="py-2.5 px-4 h-auto text-xs cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                if (draftToDelete) {
-                  deleteMutation.mutate({
-                    id: draftToDelete.id,
-                    status: draftToDelete.status,
-                  });
-                }
-                setDraftToDelete(null);
-              }}
-              variant="primary"
-              className="py-2.5 px-5 h-auto text-xs cursor-pointer"
-            >
-              Delete Draft
-            </Button>
-          </>
+        description={
+          <p>
+            Are you sure you want to permanently delete <span className="font-semibold text-white">"{draftToDelete?.title || "Untitled Draft"}"</span>? This action cannot be undone.
+          </p>
         }
-      >
-        <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
-          Are you sure you want to permanently erase <span className="font-semibold text-accent">"{draftToDelete?.title || "Untitled Draft"}"</span>? This will sync indices and cannot be undone.
-        </p>
-      </Modal>
+      />
 
       {/* Multi-Deletion dialog Modal */}
-      <Modal
-        id="multi-delete-modal"
+      <ConfirmationModal
         show={!!showMultiDeleteConfirm}
+        theme={theme}
+        title={showMultiDeleteConfirm ? `Delete ${showMultiDeleteConfirm === 'draft' ? selectedDrafts.size : selectedPublished.size} Designs?` : "Delete Designs?"}
+        iconType="trash"
+        variant="danger"
+        confirmText="Delete Selected"
+        cancelText="Cancel"
+        isLoading={deleteSelectedMutation.isPending}
+        onConfirm={() => {
+          if (showMultiDeleteConfirm) {
+            const ids = Array.from(showMultiDeleteConfirm === 'draft' ? selectedDrafts : selectedPublished) as string[];
+            deleteSelectedMutation.mutate({ ids, status: showMultiDeleteConfirm });
+          }
+          setShowMultiDeleteConfirm(null);
+        }}
         onClose={() => setShowMultiDeleteConfirm(null)}
-        title={showMultiDeleteConfirm ? `Remove ${showMultiDeleteConfirm === 'draft' ? selectedDrafts.size : selectedPublished.size} Designs?` : "Remove Designs?"}
-        size="sm"
-        footer={
-          <>
-            <Button
-              type="button"
-              onClick={() => setShowMultiDeleteConfirm(null)}
-              variant="secondary"
-              className="py-2.5 px-4 h-auto text-xs cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                if (showMultiDeleteConfirm) {
-                  const ids = Array.from(showMultiDeleteConfirm === 'draft' ? selectedDrafts : selectedPublished) as string[];
-                  deleteSelectedMutation.mutate({ ids, status: showMultiDeleteConfirm });
-                }
-                setShowMultiDeleteConfirm(null);
-              }}
-              variant="primary"
-              className="py-2.5 px-5 h-auto text-xs cursor-pointer"
-            >
-              Delete Selected
-            </Button>
-          </>
+        description={
+          <p>
+            Are you sure you want to permanently delete the selected designs? This action cannot be undone.
+          </p>
         }
-      >
-        <p className="text-xs text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
-          Are you sure you want to permanently erase the selected designs? This will sync indices and cannot be undone.
-        </p>
-      </Modal>
+      />
+
+
 
       {/* Dynamic Projects Preview Lightbox */}
       <AnimatePresence>
@@ -1077,6 +1064,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     </button>
                   </Tooltip>
                 )}
+
+                {/* Delete Design Button */}
+                <Tooltip content="Delete Design" theme={theme} position="bottom">
+                  <button
+                    onClick={() => setDraftToDelete(lightboxDesign)}
+                    className={`p-2.5 sm:p-3 rounded-full transition-all cursor-pointer backdrop-blur-md border shadow-sm flex items-center justify-center ${
+                      theme === "dark"
+                        ? "bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border-red-500/20"
+                        : "bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border-red-200"
+                    }`}
+                  >
+                    <Trash2 size={18} className="stroke-[2.5]" />
+                  </button>
+                </Tooltip>
 
                 {/* Collapse/Expand Side Panel Toggle */}
                 <Tooltip content={isPanelCollapsed ? "Show Details" : "Hide Details"} theme={theme} position="bottom">
@@ -1143,8 +1144,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   ref={imageAreaRef}
                   className={`flex-1 relative flex items-center justify-center select-none h-full md:h-full overflow-hidden transition-all duration-300 ${
                     !isPanelCollapsed 
-                      ? "p-4 pb-[calc(324px+env(safe-area-inset-bottom,0px))] md:p-0" 
-                      : "p-4 pb-[calc(74px+env(safe-area-inset-bottom,0px))] md:p-0"
+                      ? (isPanelFullyExpanded ? "p-4 pb-[calc(100vh-120px)] md:p-0" : "p-4 pb-[324px] md:p-0")
+                      : "p-4 pb-[74px] md:p-0"
                   }`}
                   onClick={() => setLightboxDesign(null)}
                 >
@@ -1281,16 +1282,23 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               <div className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 ${
                 theme === "dark" ? "border-divider-dark" : "border-neutral-100"
               }`}>
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 ${
+                <div 
+                  className="flex items-center gap-2.5 min-w-0 cursor-pointer group/creator hover:opacity-85 transition-opacity"
+                  onClick={() => setActiveDesignerId(user.id)}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 overflow-hidden transition-colors group-hover/creator:border-accent ${
                     theme === "dark"
                       ? "bg-white/10 border border-white/20 text-white"
                       : "bg-accent/20 border border-accent/30 text-accent"
                   }`}>
-                    {user.name ? user.name.slice(0, 1).toUpperCase() : "M"}
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.username || "user"} className="w-full h-full object-cover" />
+                    ) : (
+                      user.username ? user.username.slice(0, 1).toUpperCase() : "M"
+                    )}
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-xs font-bold font-space truncate ${
+                    <p className={`text-xs font-bold font-space truncate group-hover/creator:text-accent transition-colors ${
                       theme === "dark" ? "text-white" : "text-[#171717]"
                     }`}>
                       @{user.username || "me"}
@@ -1355,9 +1363,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   </div>
                 </div>
 
-                <div className={`pt-5 border-t ${
-                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                }`}>
+                <div>
                   <h4 className={`text-[10px] font-mono uppercase tracking-wider mb-2 ${
                     theme === "dark" ? "text-neutral-400" : "text-neutral-500"
                   }`}>
@@ -1391,9 +1397,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 </div>
 
                 {lightboxDesign.description && (
-                  <div className={`pt-5 border-t ${
-                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                  }`}>
+                  <div>
                     <h4 className={`text-[10px] font-mono uppercase tracking-wider mb-2.5 ${
                       theme === "dark" ? "text-neutral-400" : "text-neutral-500"
                     }`}>
@@ -1411,7 +1415,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 <div className={`pt-5 border-t ${
                   theme === "dark" ? "border-divider-dark" : "border-neutral-100"
                 }`}>
-                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} onOpenProfile={(id) => setActiveDesignerId(id)} />
                 </div>
               </div>
             </motion.div>
@@ -1419,11 +1423,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             {/* Mobile Bottom Panel */}
             <motion.div
               animate={{ 
-                height: isPanelCollapsed ? 0 : "250px",
+                height: isPanelCollapsed ? 0 : (isPanelFullyExpanded ? "calc(100vh - 120px)" : "250px"),
                 opacity: isPanelCollapsed ? 0 : 1
               }}
               transition={{ type: "spring", damping: 30, stiffness: 250 }}
-              className={`flex md:hidden absolute inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom,0px))] flex-col z-40 overflow-hidden rounded-t-3xl transition-colors duration-300 ${
+              className={`flex md:hidden absolute inset-x-0 bottom-[64px] flex-col z-40 overflow-hidden rounded-t-3xl transition-colors duration-300 ${
                 theme === "dark" 
                   ? "bg-[#1E1E1E] border-t border-divider-dark text-white shadow-[0_-15px_40px_rgba(0,0,0,0.5)]" 
                   : "bg-white border-t border-neutral-200 text-[#171717] shadow-[0_-15px_40px_rgba(0,0,0,0.1)]"
@@ -1431,36 +1435,80 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 ${
-                theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-              }`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 ${
+              <div 
+                onClick={() => setIsPanelFullyExpanded(!isPanelFullyExpanded)}
+                className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 cursor-pointer ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}
+              >
+                <div 
+                  className="flex items-center gap-2 min-w-0 cursor-pointer group/creator hover:opacity-85 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveDesignerId(user.id);
+                  }}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 overflow-hidden transition-colors group-hover/creator:border-accent ${
                     theme === "dark"
                       ? "bg-white/10 border border-white/20 text-white"
                       : "bg-accent/20 border border-accent/30 text-accent"
                   }`}>
-                    {user.name ? user.name.slice(0, 1).toUpperCase() : "M"}
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.username || "user"} className="w-full h-full object-cover" />
+                    ) : (
+                      user.username ? user.username.slice(0, 1).toUpperCase() : "M"
+                    )}
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-xs font-bold font-space truncate ${
+                    <p className={`text-xs font-bold font-space truncate group-hover/creator:text-accent transition-colors ${
                       theme === "dark" ? "text-white" : "text-[#171717]"
                     }`}>
                       @{user.username || "me"}
                     </p>
+                    <span className={`text-[9px] font-mono block ${
+                      theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                    }`}>
+                      Creator Profile
+                    </span>
                   </div>
                 </div>
+
+                {/* Drag Handle Indicator */}
+                <div className="hidden xs:flex flex-col items-center gap-0.5 pointer-events-none">
+                  <div className={`w-8 h-1 rounded-full ${theme === "dark" ? "bg-white/20" : "bg-neutral-300"}`} />
+                  <span className={`text-[8px] font-mono tracking-wider uppercase ${theme === "dark" ? "text-neutral-500" : "text-neutral-400"}`}>
+                    {isPanelFullyExpanded ? "Tap to Shrink" : "Tap to Expand"}
+                  </span>
+                </div>
                 
-                <button
-                  onClick={() => setIsPanelCollapsed(true)}
-                  className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
-                    theme === "dark"
-                      ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
-                      : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
-                  }`}
-                >
-                  <ChevronDown size={16} />
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setIsPanelFullyExpanded(!isPanelFullyExpanded)}
+                    className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
+                      theme === "dark"
+                        ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
+                        : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
+                    }`}
+                    title={isPanelFullyExpanded ? "Shrink details" : "Fully expand details"}
+                  >
+                    {isPanelFullyExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsPanelCollapsed(true);
+                      setIsPanelFullyExpanded(false);
+                    }}
+                    className={`p-1.5 rounded-full transition-all cursor-pointer border shrink-0 ${
+                      theme === "dark"
+                        ? "bg-white/5 hover:bg-white/10 text-white border-white/10"
+                        : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border-neutral-200"
+                    }`}
+                    title="Hide Panel"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               {/* Body */}
@@ -1474,9 +1522,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 </div>
 
                 {lightboxDesign.description && (
-                  <div className={`pt-3 border-t ${
-                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
-                  }`}>
+                  <div>
                     <p className={`text-xs leading-relaxed ${
                       theme === "dark" ? "text-neutral-300" : "text-neutral-600"
                     }`}>
@@ -1489,7 +1535,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 <div className={`pt-3 border-t ${
                   theme === "dark" ? "border-divider-dark" : "border-neutral-100"
                 }`}>
-                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} onOpenProfile={(id) => setActiveDesignerId(id)} />
                 </div>
               </div>
             </motion.div>
@@ -1497,38 +1543,37 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         )}
       </AnimatePresence>
 
-      <Modal
-        id="publish-confirm-modal"
+      <ConfirmationModal
         show={showPublishConfirm}
-        onClose={() => setShowPublishConfirm(false)}
+        theme={theme}
         title="Publish this design?"
-        size="sm"
-      >
-        <div className="space-y-6 py-2 text-left">
-          <p className="text-sm text-[#555555] dark:text-[#D7D7D7] leading-relaxed">
+        iconType="warning"
+        variant="info"
+        confirmText="Publish Design"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setShowPublishConfirm(false);
+          publishMutation.mutate(Array.from(selectedDrafts));
+        }}
+        onClose={() => setShowPublishConfirm(false)}
+        description={
+          <p>
             Your design will become publicly visible and start receiving community feedback immediately.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button
-              onClick={() => setShowPublishConfirm(false)}
-              variant="secondary"
-              className="w-full h-11 cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setShowPublishConfirm(false);
-                publishMutation.mutate(Array.from(selectedDrafts));
-              }}
-              variant="primary"
-              className="w-full h-11 cursor-pointer"
-            >
-              Publish Design
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        }
+      />
+
+      {/* Designer Profile Modal */}
+      {activeDesignerId && (
+        <DesignerProfileModal
+          show={!!activeDesignerId}
+          theme={theme}
+          designerId={activeDesignerId}
+          onClose={() => setActiveDesignerId(null)}
+          showToast={showToast}
+          onOpenProfile={(id) => setActiveDesignerId(id)}
+        />
+      )}
 
     </div>
   );

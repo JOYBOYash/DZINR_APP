@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MessageSquare, Heart, Send, Loader2, Sparkles } from "lucide-react";
+import { MessageSquare, Send, Loader2 } from "lucide-react";
 import { discoveryService, DesignComment } from "../services/discovery.service";
 import { Design } from "../services/design.service";
 import { UserProfile } from "../types";
@@ -9,6 +9,7 @@ interface DesignCommentsSectionProps {
   user: UserProfile | null;
   theme?: "light" | "dark";
   onCommentAdded?: () => void;
+  onOpenProfile?: (userId: string) => void;
 }
 
 export const DesignCommentsSection: React.FC<DesignCommentsSectionProps> = ({
@@ -16,6 +17,7 @@ export const DesignCommentsSection: React.FC<DesignCommentsSectionProps> = ({
   user,
   theme = "dark",
   onCommentAdded,
+  onOpenProfile,
 }) => {
   const [comments, setComments] = useState<DesignComment[]>([]);
   const [newCommentText, setNewCommentText] = useState("");
@@ -86,100 +88,135 @@ export const DesignCommentsSection: React.FC<DesignCommentsSectionProps> = ({
   const commentsCount = comments.length > 0 ? comments.length : (design.stats?.commentsCount || 0);
 
   return (
-    <div className={`pt-4 border-t ${
-      theme === "dark" ? "border-white/10 text-white" : "border-neutral-200 text-[#171717]"
+    <div className={`pt-6 border-t ${
+      theme === "dark" ? "border-white/5 text-white" : "border-neutral-100 text-[#171717]"
     }`}>
-      {/* Header */}
+      {/* Header with modern label style */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <MessageSquare size={14} className="text-[#C90023] shrink-0" />
           <h4 className={`text-xs font-bold font-space uppercase tracking-wider ${
-            theme === "dark" ? "text-white" : "text-[#171717]"
+            theme === "dark" ? "text-neutral-200" : "text-[#171717]"
           }`}>
-            Comments ({commentsCount})
+            Discussion
           </h4>
+          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+            theme === "dark" ? "bg-white/10 text-neutral-300" : "bg-[#C90023]/10 text-[#C90023]"
+          }`}>
+            {commentsCount}
+          </span>
         </div>
       </div>
 
-      {/* Comment Form */}
-      <form onSubmit={handleSubmit} className="mb-5 relative">
-        <div className={`rounded-2xl border p-2 flex flex-col gap-2 transition-all ${
+      {/* Modern Seamless Comment Form */}
+      <form onSubmit={handleSubmit} className="mb-6 relative">
+        <div className={`rounded-xl border p-2 flex gap-2 items-center transition-all duration-300 ${
           theme === "dark"
-            ? "bg-black/30 border-white/10 focus-within:border-[#C90023]"
-            : "bg-neutral-50 border-neutral-200 focus-within:border-[#C90023]"
+            ? "bg-white/[0.03] border-white/5 focus-within:border-[#C90023]/60 focus-within:ring-2 focus-within:ring-[#C90023]/10 focus-within:bg-black/20"
+            : "bg-neutral-50 border-neutral-200 focus-within:border-[#C90023]/60 focus-within:ring-2 focus-within:ring-[#C90023]/10 focus-within:bg-white"
         }`}>
           <textarea
             value={newCommentText}
             onChange={(e) => setNewCommentText(e.target.value)}
-            placeholder="Write a comment..."
-            rows={2}
-            className={`w-full bg-transparent px-2 py-1 text-xs resize-none outline-none font-sans leading-relaxed ${
+            placeholder="Share feedback or ask a question..."
+            rows={1}
+            className={`flex-1 bg-transparent px-2.5 py-2 text-xs resize-none outline-none font-sans leading-relaxed ${
               theme === "dark"
                 ? "text-white placeholder:text-neutral-500"
                 : "text-neutral-900 placeholder:text-neutral-400"
             }`}
+            style={{ minHeight: "36px", maxHeight: "120px" }}
+            onKeyDown={(e) => {
+              // Submit on Enter (without shift key)
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
           />
-          <div className="flex items-center justify-end pt-1 border-t border-dashed border-neutral-200 dark:border-white/10">
-            <button
-              type="submit"
-              disabled={isSubmitting || !newCommentText.trim()}
-              className="p-2 rounded-xl bg-[#C90023] hover:bg-red-700 disabled:opacity-40 disabled:hover:bg-[#C90023] text-white transition-all cursor-pointer flex items-center justify-center"
-              title="Post comment"
-            >
-              {isSubmitting ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Send size={13} />
-              )}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting || !newCommentText.trim()}
+            className="w-8 h-8 rounded-lg bg-[#C90023] hover:bg-red-700 disabled:opacity-40 disabled:hover:bg-[#C90023] text-white transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-sm hover:scale-105 active:scale-95"
+            title="Post comment"
+          >
+            {isSubmitting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Send size={13} className="ml-0.5" />
+            )}
+          </button>
         </div>
         {errorMsg && (
-          <p className="text-[11px] text-red-500 mt-1 font-mono">{errorMsg}</p>
+          <p className="text-[11px] text-red-500 mt-1.5 font-mono">{errorMsg}</p>
         )}
       </form>
 
-      {/* Comments List */}
-      <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+      {/* Premium Comments Stream */}
+      <div className="space-y-4 max-h-[260px] overflow-y-auto pr-1">
         {comments.length === 0 ? (
-          <div className={`text-center py-6 px-4 rounded-2xl border border-dashed text-xs ${
+          <div className={`text-center py-8 px-4 rounded-xl border border-dashed text-xs ${
             theme === "dark"
-              ? "border-white/10 text-neutral-400 bg-white/[0.02]"
-              : "border-neutral-200 text-neutral-500 bg-neutral-50"
+              ? "border-white/5 text-neutral-500 bg-white/[0.01]"
+              : "border-neutral-200 text-neutral-400 bg-neutral-50"
           }`}>
-            <p className="font-medium">No comments yet.</p>
-            <p className="text-[10px] text-neutral-400 mt-0.5">Be the first to share text feedback on this design!</p>
+            <p className="font-semibold font-space">No comments yet</p>
+            <p className="text-[10px] opacity-75 mt-0.5">Be the first to share feedback on this creation.</p>
           </div>
         ) : (
           comments.map((comment) => (
             <div
               key={comment.id}
-              className={`p-3 rounded-2xl border transition-colors ${
-                theme === "dark"
-                  ? "bg-white/5 border-white/10 hover:border-white/20 text-white"
-                  : "bg-white border-neutral-200 hover:border-neutral-300 text-neutral-900 shadow-xs"
+              className={`flex gap-3 text-left transition-opacity duration-200 pb-3.5 border-b last:border-0 ${
+                theme === "dark" ? "border-white/5" : "border-neutral-100"
               }`}
             >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#C90023]/20 border border-[#C90023]/40 flex items-center justify-center text-[10px] font-bold text-[#C90023] font-space uppercase shrink-0">
+              {/* User Avatar Column */}
+              <div 
+                onClick={() => onOpenProfile?.(comment.userId)}
+                className={`shrink-0 ${onOpenProfile ? "cursor-pointer" : ""}`}
+              >
+                {comment.userAvatar ? (
+                  <img
+                    src={comment.userAvatar}
+                    alt={comment.userName}
+                    className="w-7 h-7 rounded-full object-cover border border-neutral-200 dark:border-white/10"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-[#C90023]/10 border border-[#C90023]/20 flex items-center justify-center text-[11px] font-bold text-[#C90023] font-space uppercase">
                     {comment.userName.slice(0, 1).toUpperCase()}
                   </div>
-                  <span className="text-xs font-bold font-space truncate">
-                    {comment.userName}
+                )}
+              </div>
+
+              {/* Text & Meta Column */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span 
+                    onClick={() => onOpenProfile?.(comment.userId)}
+                    className={`text-xs font-bold font-space truncate ${
+                      onOpenProfile 
+                        ? "cursor-pointer hover:text-[#C90023] hover:underline decoration-[#C90023]/40 transition-colors" 
+                        : ""
+                    } ${
+                      theme === "dark" ? "text-neutral-100" : "text-neutral-800"
+                    }`}
+                  >
+                    {comment.userName.startsWith("@") ? comment.userName : `@${comment.userName}`}
+                  </span>
+                  <span className={`text-[9px] font-mono opacity-60 ${
+                    theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                  }`}>
+                    • {formatRelativeTime(comment.createdAt)}
                   </span>
                 </div>
-                <span className={`text-[10px] font-mono shrink-0 ${
-                  theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                <p className={`text-xs leading-relaxed whitespace-pre-wrap mt-0.5 ${
+                  theme === "dark" ? "text-neutral-300" : "text-neutral-600"
                 }`}>
-                  {formatRelativeTime(comment.createdAt)}
-                </span>
+                  {comment.content}
+                </p>
               </div>
-              <p className={`text-xs leading-relaxed whitespace-pre-wrap pl-7 ${
-                theme === "dark" ? "text-neutral-300" : "text-neutral-700"
-              }`}>
-                {comment.content}
-              </p>
             </div>
           ))
         )}

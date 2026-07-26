@@ -4,18 +4,38 @@ import { UserProfile } from '../types';
 
 export const userService = {
   /**
-   * Fetches the user profile document from Firestore.
+   * Fetches the user profile document from Firestore by userId or username.
    */
-  async getUserProfile(userId: string): Promise<UserProfile | null> {
+  async getUserProfile(userIdOrUsername: string): Promise<UserProfile | null> {
+    if (!userIdOrUsername) return null;
     try {
-      const docRef = doc(db, 'users', userId);
+      const docRef = doc(db, 'users', userIdOrUsername);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         return docSnap.data() as UserProfile;
       }
+      return await this.getUserByUsername(userIdOrUsername);
+    } catch (err) {
+      return await this.getUserByUsername(userIdOrUsername);
+    }
+  },
+
+  /**
+   * Fetches user profile by username.
+   */
+  async getUserByUsername(username: string): Promise<UserProfile | null> {
+    try {
+      const cleanUsername = username.replace(/^@/, '').trim().toLowerCase();
+      if (!cleanUsername) return null;
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('username', '==', cleanUsername), limit(1));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].data() as UserProfile;
+      }
       return null;
     } catch (err) {
-      handleFirestoreError(err, OperationType.GET, `users/${userId}`);
+      console.warn("Could not fetch user profile by username:", err);
       return null;
     }
   },
