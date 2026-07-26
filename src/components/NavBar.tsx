@@ -20,28 +20,38 @@ export const NavBar: React.FC<NavBarProps> = ({
       initial={{ y: 120, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
-      className="md:hidden fixed bottom-5 left-4 right-4 max-w-md mx-auto z-[150] rounded-[24px] flex flex-col justify-center border border-neutral-200/50 dark:border-white/10 bg-white/85 dark:bg-[#121212]/85 backdrop-blur-md shadow-[0_12px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.45)]"
+      className="md:hidden fixed bottom-0 left-0 right-0 w-full z-[150] rounded-none flex flex-col justify-center border-t border-neutral-200/40 dark:border-white/5 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-8px_32px_rgba(0,0,0,0.3)] pb-0"
       style={{ 
         height: "64px"
       }}
     >
-      {/* Sleek Floating Creation Button emerging as a liquid teardrop */}
-      {currentPage === "projects" && onCreateNew && (
+      {/* Sleek Floating Creation Button using actual brand logo as background */}
+      {onCreateNew && currentPage === "projects" && (
         <motion.button
           key="mobile-nav-create-btn"
           initial={{ scale: 0, opacity: 0, y: 15 }}
-          animate={{ scale: 1, opacity: 1, y: -22 }}
+          animate={{ scale: 1, opacity: 1, y: -24 }}
           exit={{ scale: 0, opacity: 0, y: 15 }}
-          transition={{ type: "spring", stiffness: 400, damping: 22 }}
+          transition={{ type: "spring", stiffness: 450, damping: 22 }}
           onClick={(e) => {
             e.preventDefault();
             onCreateNew();
           }}
-          className="absolute left-1/2 -translate-x-1/2 w-12 h-14 rounded-t-[24px] rounded-b-[12px] bg-accent text-white shadow-[0_8px_24px_rgba(201,0,35,0.35)] hover:shadow-[0_12px_28px_rgba(201,0,35,0.45)] flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 z-[160]"
+          className="absolute left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 z-[160]"
           title="Create New Post"
         >
-          <div className="pb-1.5 flex items-center justify-center">
-            <Plus size={22} strokeWidth={3} className="text-white" />
+          {/* Use the actual logo of the app with no background, smaller icon size */}
+          <div className="w-8 h-8 flex items-center justify-center overflow-hidden">
+            <img
+              src="/logo-and-loader.svg"
+              alt="Dzinr Logo"
+              className="w-full h-full object-contain dark:invert-0 invert"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          {/* Elegant Overlay Plus Icon badge */}
+          <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-accent border border-white dark:border-[#121212] flex items-center justify-center shadow-md">
+            <Plus size={10} strokeWidth={4} className="text-white" />
           </div>
         </motion.button>
       )}

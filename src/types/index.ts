@@ -4,6 +4,7 @@ export interface UserProfile {
   username: string;
   bio?: string;
   avatarUrl?: string;
+  coverUrl?: string;
   role: string;
   inspirationStyles: string[];
   preferredFormats: string[];

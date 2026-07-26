@@ -18,6 +18,16 @@ import {
 import { UserProfile } from "../types";
 import { Design } from "./design.service";
 
+export interface DesignComment {
+  id: string;
+  designId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface SwipeRecord {
   id: string;
   userId: string;
@@ -103,6 +113,24 @@ export const discoveryService = {
       const history = await this.getUserFeedHistory(user.id);
       const viewedSet = new Set(history?.viewedDesignIds || []);
 
+      // 1.5. Fetch creators followed by the user
+      const followedCreatorIds = new Set<string>();
+      try {
+        const followsQuery = query(
+          collection(db, "follows"),
+          where("followerId", "==", user.id)
+        );
+        const followsSnap = await getDocs(followsQuery);
+        followsSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.followedId) {
+            followedCreatorIds.add(data.followedId);
+          }
+        });
+      } catch (err) {
+        console.warn("Failed to fetch followed creators for feed curation:", err);
+      }
+
       // 2. Query designs collection (No orderBy constraint to avoid requiring a composite index)
       let q = query(
         collection(db, "designs"),
@@ -140,6 +168,11 @@ export const discoveryService = {
       // 4. Rank candidates
       const ranked = filtered.map((design) => {
         let rankScore = 0;
+
+        // Followed creators boost: massive weight to ensure they appear in the feed
+        if (followedCreatorIds.has(design.userId)) {
+          rankScore += 100;
+        }
 
         // Ensure safe stats object structure
         const stats = (design.stats || {}) as any;
@@ -330,6 +363,86 @@ export const discoveryService = {
   },
 
   /**
+   * Checks if a user has liked a specific design.
+   */
+  async checkIfUserLikedDesign(userId: string, designId: string): Promise<boolean> {
+    if (!userId || !designId) return false;
+    try {
+      const likeId = `${userId}_${designId}`;
+      const likeRef = doc(db, "likes", likeId);
+      const likeSnap = await getDoc(likeRef);
+      if (likeSnap.exists()) return true;
+
+      // Fallback check in swipes collection for right swipe
+      const swipeRef = doc(db, "swipes", likeId);
+      const swipeSnap = await getDoc(swipeRef);
+      if (swipeSnap.exists() && swipeSnap.data().action === "right") {
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn("checkIfUserLikedDesign check error:", err);
+      return false;
+    }
+  },
+
+  /**
+   * Toggles like status for a design by the current user.
+   */
+  async toggleLikeDesign(userId: string, designId: string): Promise<{ liked: boolean; newCount: number }> {
+    if (!userId || !designId) throw new Error("User ID and Design ID are required");
+    try {
+      const likeId = `${userId}_${designId}`;
+      const likeRef = doc(db, "likes", likeId);
+      const likeSnap = await getDoc(likeRef);
+      
+      const designRef = doc(db, "designs", designId);
+      const designSnap = await getDoc(designRef);
+
+      let isLiked = false;
+      let newCount = 0;
+
+      if (designSnap.exists()) {
+        const data = designSnap.data() as Design;
+        const stats = (data.stats || {}) as any;
+        const currentLikes = stats.likes || stats.rightSwipes || 0;
+
+        if (likeSnap.exists()) {
+          // Remove like
+          await deleteDoc(likeRef);
+          newCount = Math.max(0, currentLikes - 1);
+          isLiked = false;
+        } else {
+          // Add like
+          await setDoc(likeRef, {
+            id: likeId,
+            userId,
+            designId,
+            createdAt: new Date().toISOString(),
+          });
+          newCount = currentLikes + 1;
+          isLiked = true;
+        }
+
+        try {
+          await updateDoc(designRef, {
+            "stats.likes": newCount,
+            "stats.rightSwipes": newCount,
+            "stats.updatedAt": new Date().toISOString(),
+          });
+        } catch (updateErr) {
+          console.warn("Failed to update design likes count:", updateErr);
+        }
+      }
+
+      return { liked: isLiked, newCount };
+    } catch (err) {
+      console.error("Failed to toggle like on design:", err);
+      throw err;
+    }
+  },
+
+  /**
    * Computes creator portfolio metrics from their designs.
    */
   async getCreatorMetrics(userId: string): Promise<CreatorMetrics> {
@@ -515,5 +628,231 @@ export const discoveryService = {
     }, (err) => {
       console.warn("subscribeCreatorMetrics onSnapshot error:", err);
     });
+  },
+
+  /**
+   * Creates a new moodboard in Firestore.
+   */
+  async createMoodboard(
+    userId: string,
+    name: string,
+    privacy: "public" | "private" | "shared",
+    creatorName: string,
+    collaboratorIds: string[] = [],
+    description: string = "",
+    coverUrl: string = ""
+  ): Promise<any> {
+    try {
+      const id = "moodboard_" + Math.random().toString(36).substring(2, 15);
+      const moodboardRef = doc(db, "moodboards", id);
+      const newMoodboard = {
+        id,
+        name,
+        description,
+        coverUrl,
+        creatorId: userId,
+        creatorName,
+        privacy,
+        designIds: [],
+        collaboratorIds,
+        createdAt: new Date().toISOString(),
+      };
+      await setDoc(moodboardRef, newMoodboard);
+      return newMoodboard;
+    } catch (err) {
+      console.error("Failed to create moodboard:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Subscribes to moodboards for the user (created by them OR shared with them as collaborator).
+   */
+  subscribeUserMoodboards(userId: string, callback: (moodboards: any[]) => void): () => void {
+    const q = query(
+      collection(db, "moodboards")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const moodboards: any[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (
+          data.creatorId === userId || 
+          (data.privacy === "shared" && data.collaboratorIds?.includes(userId))
+        ) {
+          moodboards.push(data);
+        }
+      });
+      moodboards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(moodboards);
+    }, (err) => {
+      console.warn("subscribeUserMoodboards onSnapshot error:", err);
+    });
+  },
+
+  /**
+   * Adds or removes a design to/from a moodboard.
+   */
+  async toggleDesignInMoodboard(moodboardId: string, designId: string): Promise<boolean> {
+    try {
+      const docRef = doc(db, "moodboards", moodboardId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const designIds = data.designIds || [];
+        const exists = designIds.includes(designId);
+        let updatedIds: string[];
+        if (exists) {
+          updatedIds = designIds.filter((id: string) => id !== designId);
+        } else {
+          updatedIds = [...designIds, designId];
+        }
+        await updateDoc(docRef, { designIds: updatedIds });
+        return !exists; // returns true if added, false if removed
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to toggle design in moodboard:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Deletes a moodboard.
+   */
+  async deleteMoodboard(moodboardId: string): Promise<void> {
+    try {
+      const docRef = doc(db, "moodboards", moodboardId);
+      await deleteDoc(docRef);
+    } catch (err) {
+      console.error("Failed to delete moodboard:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Updates moodboard details.
+   */
+  async updateMoodboardPrivacy(moodboardId: string, privacy: "public" | "private" | "shared", collaboratorIds: string[] = []): Promise<void> {
+    try {
+      const docRef = doc(db, "moodboards", moodboardId);
+      await updateDoc(docRef, { privacy, collaboratorIds });
+    } catch (err) {
+      console.error("Failed to update moodboard privacy:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Updates any custom moodboard details.
+   */
+  async updateMoodboard(
+    moodboardId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      privacy?: "public" | "private" | "shared";
+      collaboratorIds?: string[];
+      coverUrl?: string;
+    }
+  ): Promise<void> {
+    try {
+      const docRef = doc(db, "moodboards", moodboardId);
+      await updateDoc(docRef, updates);
+    } catch (err) {
+      console.error("Failed to update moodboard:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Set a design's primary style.
+   */
+  async setDesignPrimaryStyle(designId: string, style: string): Promise<void> {
+    try {
+      const docRef = doc(db, "designs", designId);
+      await updateDoc(docRef, { primaryStyle: style });
+    } catch (err) {
+      console.error("Failed to set design primary style:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Adds a text comment to a design and updates its commentsCount.
+   */
+  async addDesignComment(
+    designId: string,
+    userId: string,
+    userName: string,
+    userAvatar: string,
+    content: string
+  ): Promise<DesignComment> {
+    try {
+      const commentId = `comment_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const commentRef = doc(db, "design_comments", commentId);
+      const newComment: DesignComment = {
+        id: commentId,
+        designId,
+        userId,
+        userName: userName || "Anonymous Designer",
+        userAvatar: userAvatar || "",
+        content: content.trim(),
+        createdAt: new Date().toISOString(),
+      };
+
+      await setDoc(commentRef, newComment);
+
+      // Increment commentsCount in design stats
+      const designRef = doc(db, "designs", designId);
+      const designSnap = await getDoc(designRef);
+      if (designSnap.exists()) {
+        const designData = designSnap.data() as Design;
+        const stats = (designData.stats || {}) as any;
+        const commentsCount = (stats.commentsCount || 0) + 1;
+        
+        await updateDoc(designRef, {
+          "stats.commentsCount": commentsCount,
+          "stats.updatedAt": new Date().toISOString(),
+        });
+      }
+
+      return newComment;
+    } catch (err) {
+      console.error("Failed to post comment:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Subscribes to real-time comments for a given design.
+   */
+  subscribeDesignComments(
+    designId: string,
+    callback: (comments: DesignComment[]) => void
+  ) {
+    try {
+      const q = query(
+        collection(db, "design_comments"),
+        where("designId", "==", designId),
+        orderBy("createdAt", "asc")
+      );
+      return onSnapshot(
+        q,
+        (snapshot) => {
+          const comments: DesignComment[] = snapshot.docs.map((d) => d.data() as DesignComment);
+          callback(comments);
+        },
+        (err) => {
+          console.warn("Realtime comments error, falling back to empty array:", err);
+          callback([]);
+        }
+      );
+    } catch (err) {
+      console.warn("Failed to subscribe to design comments:", err);
+      callback([]);
+      return () => {};
+    }
   },
 };

@@ -45,6 +45,7 @@ import { userService } from "../services/user.service";
 import { useToastStore } from "../stores/toast.store";
 import { Loader } from "./Loader";
 import { Button } from "./Button";
+import { DesignerProfileModal } from "./DesignerProfileModal";
 
 interface AmbientBackgroundMarqueeProps {
   theme: "dark" | "light";
@@ -251,6 +252,7 @@ interface DiscoveryCardProps {
   onExpand: () => void;
   isMobile: boolean;
   isStackHovered?: boolean;
+  onDesignerProfile?: (userId: string) => void;
 }
 
 const DiscoveryCard = React.memo(({
@@ -265,6 +267,7 @@ const DiscoveryCard = React.memo(({
   onExpand,
   isMobile,
   isStackHovered = false,
+  onDesignerProfile,
 }: DiscoveryCardProps) => {
   const isTopCard = index === 0;
 
@@ -283,20 +286,24 @@ const DiscoveryCard = React.memo(({
   const cardProps = isTopCard
     ? {
         style: { x, y, rotate, opacity: cardOpacity, zIndex: totalInStack - index },
-        drag: "x" as const, // constrain dragging on horizontal axis for robust UX
-        dragConstraints: { left: 0, right: 0 },
-        dragElastic: 0.7,
+        drag: true as const,
+        dragSnapToOrigin: true,
+        dragElastic: 0.8,
         onDragEnd: (e: any, info: any) => {
-          const thresholdX = 140;
+          const thresholdX = 120;
+          const thresholdY = -100;
           const velocityX = info.velocity.x;
+          const velocityY = info.velocity.y;
 
-          if (info.offset.x > thresholdX || velocityX > 400) {
+          if (info.offset.y < thresholdY || velocityY < -300) {
+            handleSwipe("save", card.id);
+          } else if (info.offset.x > thresholdX || velocityX > 300) {
             handleSwipe("right", card.id);
-          } else if (info.offset.x < -thresholdX || velocityX < -400) {
+          } else if (info.offset.x < -thresholdX || velocityX < -300) {
             handleSwipe("left", card.id);
           }
         },
-        animate: { opacity: 1, scale: 1, x: 0, y: 0, rotate: 0 },
+        animate: { opacity: 1, scale: 1 },
       }
     : {
         style: { pointerEvents: "none" as const, zIndex: totalInStack - index },
@@ -462,8 +469,17 @@ const DiscoveryCard = React.memo(({
       {/* 2. Overlaid Premium Tinder Info Details Panel (Absolutely Positioned) */}
       <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/95 via-black/65 to-transparent p-6 pt-28 pb-8 flex flex-col gap-3 text-left">
         {/* Creator Avatar & Info */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20 shrink-0 bg-white/10 flex items-center justify-center backdrop-blur-sm">
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (activeCreator?.id && onDesignerProfile) {
+              onDesignerProfile(activeCreator.id);
+            }
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex items-center gap-3 cursor-pointer group/creator shrink-0 pointer-events-auto"
+        >
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20 shrink-0 bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover/creator:border-white/40 transition-colors">
             {activeCreator?.avatarUrl ? (
               <img
                 src={activeCreator.avatarUrl}
@@ -483,7 +499,7 @@ const DiscoveryCard = React.memo(({
             )}
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold font-space text-white leading-none">
+            <span className="text-sm font-bold font-space text-white leading-none group-hover/creator:underline">
               @{activeCreator?.username || "Creator"}
             </span>
             <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono text-neutral-300 uppercase tracking-wider">
@@ -545,6 +561,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   const [onboardingStep, setOnboardingStep] = useState<number>(0);
   const [showReadyToast, setShowReadyToast] = useState<boolean>(false);
   const [isStackHovered, setIsStackHovered] = useState<boolean>(false);
+  const [activeDesignerId, setActiveDesignerId] = useState<string | null>(null);
 
   useEffect(() => {
     const completed = localStorage.getItem("dzinr_onboarding_completed");
@@ -556,14 +573,16 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   // Immersive popup image zoom & pan states (matched with SavedVaultView design)
   const [zoomScale, setZoomScale] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   const zoomImageRef = useRef<HTMLImageElement>(null);
   const zoomContainerRef = useRef<HTMLDivElement>(null);
 
   const clampTranslate = (x: number, y: number, scale: number) => {
     if (scale <= 1) return { x: 0, y: 0 };
-    // Safe boundary clamping depending on zoom ratio
-    const maxTranslateX = (scale - 1) * 350;
-    const maxTranslateY = (scale - 1) * 450;
+    const container = zoomContainerRef.current;
+    const rect = container ? container.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+    const maxTranslateX = (rect.width * (scale - 1)) / 2;
+    const maxTranslateY = (rect.height * (scale - 1)) / 2;
     return {
       x: Math.min(Math.max(x, -maxTranslateX), maxTranslateX),
       y: Math.min(Math.max(y, -maxTranslateY), maxTranslateY)
@@ -657,6 +676,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
       if (currentScale <= 1) return;
       e.preventDefault();
       isMouseDragging = true;
+      setIsDragging(true);
       mouseDragStart = {
         x: e.clientX - currentPan.x,
         y: e.clientY - currentPan.y,
@@ -679,6 +699,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
     const handleGlobalMouseUp = () => {
       if (isMouseDragging) {
         isMouseDragging = false;
+        setIsDragging(false);
         const currentScale = stateRef.current.zoomScale;
         element.style.cursor = currentScale > 1 ? "grab" : "zoom-in";
       }
@@ -756,6 +777,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
         } else {
           if (currentScale > 1) {
             isTouchDragging = true;
+            setIsDragging(true);
             touchDragStart = {
               x: e.touches[0].clientX - currentPan.x,
               y: e.touches[0].clientY - currentPan.y,
@@ -811,6 +833,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
         }
       }
       isTouchDragging = false;
+      setIsDragging(false);
     };
 
     const currentScale = stateRef.current.zoomScale;
@@ -1203,6 +1226,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                       onExpand={() => setExpandedCard(card)}
                       isMobile={isMobile}
                       isStackHovered={isStackHovered}
+                      onDesignerProfile={(userId) => setActiveDesignerId(userId)}
                     />
                   );
                 })}
@@ -1215,7 +1239,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                     setOnboardingStep(0);
                     setShowOnboarding(true);
                   }}
-                  className={`absolute -top-12 right-2 z-40 w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center cursor-pointer active:scale-95 transition-all shadow-lg ${
+                  className={`absolute -top-4 right-2 z-40 w-10 h-10 rounded-full backdrop-blur-md border flex items-center justify-center cursor-pointer active:scale-95 transition-all shadow-lg ${
                     theme === "dark" 
                       ? "bg-surface-dark/90 border-white/10 text-white hover:bg-elevated-dark" 
                       : "bg-white/95 border-neutral-200/80 text-[#171717] hover:bg-neutral-50"
@@ -1265,7 +1289,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
 
             {/* Top Close & Meta Bar */}
             <div 
-              className={`absolute top-6 left-6 right-6 z-10 flex items-center justify-between text-white pointer-events-none transition-all duration-300 ${
+              className={`absolute top-6 left-6 right-6 z-30 flex items-center justify-between text-white pointer-events-none transition-all duration-300 ${
                 (zoomScale > 1 || panOffset.x !== 0 || panOffset.y !== 0) && !isHeaderHovered
                   ? "opacity-0 pointer-events-none"
                   : "opacity-100"
@@ -1275,15 +1299,19 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                 <span className="text-xs font-mono uppercase tracking-widest text-neutral-400">Viewing Design</span>
                 <h4 className="text-sm font-bold font-space">{expandedCard.title}</h4>
               </div>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedCard(null);
-                }}
-                className="pointer-events-auto w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors border border-white/10 shadow-lg"
-              >
-                <X size={20} />
-              </button>
+
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedCard(null);
+                  }}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors border border-white/10 shadow-lg cursor-pointer"
+                  title="Close preview"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Scroll/Pan Viewer Guide Popup */}
@@ -1294,55 +1322,59 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex items-center gap-4 px-5 py-3 rounded-2xl bg-neutral-900/90 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10"
+                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2 sm:gap-4 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-neutral-900/95 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10 min-w-[100px] sm:min-w-0"
                 >
                   <div className="flex items-center gap-2">
-                    <ZoomIn size={16} className="text-accent animate-pulse" />
-                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll to Zoom</span>
+                    <ZoomIn size={14} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll</span>
                   </div>
-                  <div className="h-4 w-px bg-white/20 dark:bg-neutral-300" />
+                  <div className="hidden sm:block h-4 w-px bg-white/20 dark:bg-neutral-300" />
                   <div className="flex items-center gap-2">
-                    <Move size={16} className="text-accent animate-pulse" />
-                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan to Move</span>
+                    <Move size={14} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan</span>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Main Fully Uncropped Centered Design Layout */}
-            <motion.div
-              ref={zoomContainerRef}
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              transition={{ type: "spring", stiffness: 350, damping: 28 }}
-              className="relative w-full max-w-4xl h-[82vh] flex items-center justify-center overflow-visible"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (zoomScale <= 1) {
-                  setExpandedCard(null);
-                }
-              }}
-            >
+            {/* Main Content Area */}
+            <div className="w-full h-[82vh] flex items-center justify-center relative overflow-hidden">
+              {/* Image Container */}
               <motion.div
-                className="relative w-full h-full flex items-center justify-center pointer-events-none"
-                animate={{ 
-                  x: panOffset.x, 
-                  y: panOffset.y, 
-                  scale: zoomScale 
+                ref={zoomContainerRef}
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                className="relative h-full w-full max-w-4xl transition-all duration-300 flex items-center justify-center overflow-visible"
+                onClick={(e) => {
+                  e.stopPropagation();
                 }}
-                transition={{ type: "spring", damping: 35, stiffness: 280 }}
               >
-                <img
-                  ref={zoomImageRef}
-                  src={expandedCard.imageUrl}
-                  alt={expandedCard.title}
-                  className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/5 select-none"
-                  draggable={false}
-                  referrerPolicy="no-referrer"
-                />
+                <motion.div
+                  className="relative w-full h-full flex items-center justify-center pointer-events-none"
+                  animate={{ 
+                    x: panOffset.x, 
+                    y: panOffset.y, 
+                    scale: zoomScale 
+                  }}
+                  transition={
+                    isDragging
+                      ? { duration: 0 }
+                      : { type: "spring", damping: 30, stiffness: 280 }
+                  }
+                >
+                  <img
+                    ref={zoomImageRef}
+                    src={expandedCard.imageUrl}
+                    alt={expandedCard.title}
+                    className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl border border-white/5 select-none"
+                    draggable={false}
+                    referrerPolicy="no-referrer"
+                  />
+                </motion.div>
               </motion.div>
-            </motion.div>
+            </div>
 
             {/* Bottom helper tag */}
             <div className={`absolute bottom-6 flex flex-col items-center justify-center text-center text-neutral-400 pointer-events-none drop-shadow-md transition-opacity duration-300 ${
@@ -1567,6 +1599,15 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Designer Profile Modal */}
+      <DesignerProfileModal
+        show={!!activeDesignerId}
+        theme={theme}
+        designerId={activeDesignerId || ""}
+        onClose={() => setActiveDesignerId(null)}
+        showToast={showToast}
+      />
     </>
   );
 };

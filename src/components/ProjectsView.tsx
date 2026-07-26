@@ -25,6 +25,7 @@ import {
 import { UserProfile } from "../types";
 import { formatLikesCount } from "../utils/likes";
 import { designService, Design } from "../services/design.service";
+import { DesignCommentsSection } from "./DesignCommentsSection";
 import { zipImportService } from "../services/zipImport.service";
 import { cloudinaryService } from "../services/cloudinary.service";
 import { imageCompressionService } from "../services/imageCompression.service";
@@ -1115,16 +1116,16 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2.5 sm:gap-4 px-5 py-3 rounded-2xl bg-neutral-900/90 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10"
+                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2 sm:gap-4 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-neutral-900/95 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10 min-w-[100px] sm:min-w-0"
                 >
                   <div className="flex items-center gap-2">
-                    <ZoomIn size={16} className="text-accent animate-pulse" />
-                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll to Zoom</span>
+                    <ZoomIn size={14} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll</span>
                   </div>
                   <div className="hidden sm:block h-4 w-px bg-white/20 dark:bg-neutral-300" />
                   <div className="flex items-center gap-2">
-                    <Move size={16} className="text-accent animate-pulse" />
-                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan to Move</span>
+                    <Move size={14} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan</span>
                   </div>
                 </motion.div>
               )}
@@ -1364,6 +1365,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   </h4>
                   <div className="space-y-2 text-xs font-mono">
                     <div className="flex justify-between">
+                      <span className="text-[#888888]">LIKES:</span>
+                      <span className="text-rose-500 font-bold flex items-center gap-1">
+                        <Heart size={11} className="fill-current text-rose-500" />
+                        {formatLikesCount(lightboxDesign.stats?.likes || lightboxDesign.stats?.rightSwipes || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-[#888888]">STATUS:</span>
                       <span className={`font-bold capitalize ${lightboxDesign.status === 'draft' ? 'text-amber-500' : 'text-green-500'}`}>
                         {lightboxDesign.status}
@@ -1398,6 +1406,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     </p>
                   </div>
                 )}
+
+                {/* Comments & Feedback */}
+                <div className={`pt-5 border-t ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}>
+                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                </div>
               </div>
             </motion.div>
 
@@ -1469,6 +1484,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     </p>
                   </div>
                 )}
+
+                {/* Mobile Comments & Feedback */}
+                <div className={`pt-3 border-t ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}>
+                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                </div>
               </div>
             </motion.div>
           </motion.div>

@@ -18,6 +18,7 @@ import {
 export interface DesignStats {
   likes?: number;
   dislikes?: number;
+  commentsCount?: number;
   leftSwipes?: number;
   rightSwipes?: number;
   saves: number;

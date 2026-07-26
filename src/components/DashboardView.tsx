@@ -37,6 +37,7 @@ import {
   Award,
   ArrowLeft,
   Smile,
+  Share2,
 } from "lucide-react";
 import { UserProfile } from "../types";
 import { Button } from "./Button";
@@ -296,6 +297,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
+  const handleShareClientLink = () => {
+    const clientLink = `${window.location.origin}?showcase=${user.id}`;
+    navigator.clipboard.writeText(clientLink);
+    showToast("Portfolio Showcase link copied! Share with your clients to showcase top-liked designs and public boards.", "success");
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -376,13 +383,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </>
           )}
           <Button
+            id="share-client-link-btn"
+            onClick={handleShareClientLink}
+            variant="primary"
+            className="flex-1 sm:w-auto sm:flex-none py-2.5 h-auto text-xs font-semibold px-6 bg-accent text-white"
+          >
+            <Share2 size={14} className="mr-1.5" />
+            <span>Portfolio</span>
+          </Button>
+          <Button
             id="edit-profile-trigger-btn"
             onClick={onEditProfile}
             variant="secondary"
             className="flex-1 sm:w-auto sm:flex-none py-2.5 h-auto text-xs font-semibold px-6"
           >
             <Edit3 size={14} className="mr-1.5" />
-            <span>Edit Profile Presets</span>
+            <span>Edit Profile</span>
           </Button>
           <Button
             id="dashboard-theme-toggle"

@@ -64,6 +64,7 @@ service cloud.firestore {
         && data.get('createdAt', '') is string && data.get('createdAt', '').size() <= 128
         && data.get('updatedAt', '') is string && data.get('updatedAt', '').size() <= 128
         && (data.get('publishedAt', null) == null || (data.get('publishedAt', '') is string && data.get('publishedAt', '').size() <= 128))
+        && (data.get('primaryStyle', null) == null || (data.get('primaryStyle', '') is string && data.get('primaryStyle', '').size() <= 256))
         && data.get('stats', {}) is map;
     }
 
@@ -119,6 +120,18 @@ service cloud.firestore {
       allow delete: if isSignedIn() && existing().userId == request.auth.uid && isValidId(projectId);
     }
 
+    match /likes/{likeId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /design_comments/{commentId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
     match /deleted/{userId} {
       allow get: if isSignedIn() && request.auth.uid == userId && isValidId(userId);
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidDeleted(incoming()) && isValidId(userId);
@@ -130,9 +143,26 @@ service cloud.firestore {
     }
 
     match /swipes/{swipeId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
       allow delete: if isSignedIn() && (resource == null || existing().userId == request.auth.uid);
+    }
+
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().followerId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().followerId == request.auth.uid;
+    }
+
+    match /moodboards/{moodboardId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().creatorId == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && existing().creatorId == request.auth.uid;
+    }
+
+    match /support_requests/{requestId} {
+      allow read, create: if isSignedIn();
     }
   }
 }

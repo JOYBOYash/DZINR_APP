@@ -41,6 +41,30 @@
         "createdAt"
       ]
     },
+    "designs": {
+      "title": "designs",
+      "description": "Imported or published designs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "format": { "type": "string" },
+        "styles": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string" },
+        "imported": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "publishedAt": { "type": "string" },
+        "stats": { "type": "object" }
+      },
+      "required": ["id", "userId", "imageUrl", "createdAt", "updatedAt"]
+    },
     "projects": {
       "title": "projects",
       "description": "User synced portfolio design projects, primarily Figma syncs",
@@ -67,6 +91,114 @@
         "likes",
         "createdAt"
       ]
+    },
+    "likes": {
+      "title": "likes",
+      "description": "User likes on specific design assets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "designId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "designId", "createdAt"]
+    },
+    "design_comments": {
+      "title": "design_comments",
+      "description": "User comments on specific design assets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "designId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "designId", "userId", "content", "createdAt"]
+    },
+    "follows": {
+      "title": "follows",
+      "description": "User follow relationships to other designers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "followerId": { "type": "string" },
+        "followedId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "followerId",
+        "followedId",
+        "createdAt"
+      ]
+    },
+    "moodboards": {
+      "title": "moodboards",
+      "description": "User created aesthetic moodboards and layout folders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "privacy": { "type": "string" },
+        "designIds": { "type": "array", "items": { "type": "string" } },
+        "collaboratorIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "name",
+        "creatorId",
+        "creatorName",
+        "privacy",
+        "designIds",
+        "collaboratorIds",
+        "createdAt"
+      ]
+    },
+    "swipes": {
+      "title": "swipes",
+      "description": "Interaction swipes on designs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "designId": { "type": "string" },
+        "action": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "designId", "action", "createdAt"]
+    },
+    "userFeedHistory": {
+      "title": "userFeedHistory",
+      "description": "Viewed history for user feed curation",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "viewedDesignIds": { "type": "array", "items": { "type": "string" } },
+        "lastSeen": { "type": "string" },
+        "sessionId": { "type": "string" }
+      },
+      "required": ["userId", "viewedDesignIds"]
+    },
+    "support_requests": {
+      "title": "support_requests",
+      "description": "User submitted support messages or feedback",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -74,9 +206,41 @@
       "schema": "users",
       "description": "A single user profile with recommendation-ready onboarding data"
     },
+    "designs/{designId}": {
+      "schema": "designs",
+      "description": "User design asset"
+    },
     "projects/{projectId}": {
       "schema": "projects",
       "description": "A design project belonging to a user, which can have Figma embeds and categories"
+    },
+    "likes/{likeId}": {
+      "schema": "likes",
+      "description": "User like on a design"
+    },
+    "design_comments/{commentId}": {
+      "schema": "design_comments",
+      "description": "User comment on a design"
+    },
+    "follows/{followId}": {
+      "schema": "follows",
+      "description": "A follow connection between two designers"
+    },
+    "moodboards/{moodboardId}": {
+      "schema": "moodboards",
+      "description": "A design moodboard/folder created by a user"
+    },
+    "swipes/{swipeId}": {
+      "schema": "swipes",
+      "description": "User swipe action record"
+    },
+    "userFeedHistory/{userId}": {
+      "schema": "userFeedHistory",
+      "description": "User feed history record"
+    },
+    "support_requests/{requestId}": {
+      "schema": "support_requests",
+      "description": "Support requests"
     }
   }
 }

@@ -15,6 +15,7 @@ import { ProjectEditorView } from "./components/ProjectEditorView";
 import { EditProfileView } from "./components/EditProfileView";
 import { DiscoveryFeedView } from "./components/DiscoveryFeedView";
 import { SavedVaultView } from "./components/SavedVaultView";
+import { ClientShowcaseView } from "./components/ClientShowcaseView";
 import { AuthWrapper } from "./components/AuthWrapper";
 import { ToastContainer } from "./components/Toast";
 import { NavBar } from "./components/NavBar";
@@ -53,6 +54,10 @@ export default function App() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
+  const [showcaseUserId, setShowcaseUserId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("showcase") || params.get("clientLink");
+  });
 
   const [loadingMessage, setLoadingMessage] =
     useState<string>("Authenticating");
@@ -526,6 +531,22 @@ export default function App() {
   const isFullyAuthenticated = isAuthenticated && !!user?.profileCompleted;
   const showNav = isFullyAuthenticated && currentPage !== "edit-profile" && currentPage !== "project-editor";
 
+  if (showcaseUserId) {
+    return (
+      <ClientShowcaseView
+        userId={showcaseUserId}
+        theme={theme}
+        onClose={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("showcase");
+          url.searchParams.delete("clientLink");
+          window.history.replaceState({}, "", url.pathname);
+          setShowcaseUserId(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div
       id="app-root-theme-container"
@@ -567,7 +588,7 @@ export default function App() {
             ? `max-w-[1400px] mx-auto px-4 md:px-12 ${isLightboxOpen ? "py-0" : "py-6"} md:pl-[120px] items-center` // Extra padding for sidebar on desktop
             : "px-0 py-0 w-full max-w-none items-start"
         }`}
-        style={showNav ? { paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" } : undefined}
+        style={showNav ? { paddingBottom: "4.5rem" } : undefined}
       >
         <AuthWrapper
           isAuthenticated={isAuthenticated}

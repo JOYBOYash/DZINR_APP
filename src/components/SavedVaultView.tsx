@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Move, ZoomIn, Grid, Layers, Heart } from "lucide-react";
+import { Bookmark, Trash2, X, Compass, Calendar, Info, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Move, ZoomIn, Grid, Layers, Heart, FolderPlus, FolderOpen, Lock, Globe, Users, Share2, Plus, Image, Edit3, MessageSquare, Sparkles } from "lucide-react";
 import { formatLikesCount } from "../utils/likes";
 import { UserProfile } from "../types";
 import { Design } from "../services/design.service";
@@ -12,6 +12,10 @@ import { EmptyState } from "./EmptyState";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 import { Tooltip } from "./Tooltip";
+import { MoodboardSelectionModal } from "./MoodboardSelectionModal";
+import { CreateMoodboardModal } from "./CreateMoodboardModal";
+import { DesignerProfileModal } from "./DesignerProfileModal";
+import { DesignCommentsSection } from "./DesignCommentsSection";
 
 interface SavedVaultViewProps {
   user: UserProfile;
@@ -35,37 +39,130 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
   const [designToDelete, setDesignToDelete] = useState<Design | null>(null);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [selectedStyle, setSelectedStyle] = useState<string>("All");
-  const [viewMode, setViewMode] = useState<"grouped" | "grid">("grouped");
+  const [viewMode, setViewMode] = useState<"grouped" | "grid" | "moodboards">("grouped");
+  const [activeDesignerId, setActiveDesignerId] = useState<string | null>(null);
 
-  // Get all unique styles that exist in the user's saved designs
+  // Moodboard states
+  const [selectionDesign, setSelectionDesign] = useState<Design | null>(null);
+  const [showCreateMoodboard, setShowCreateMoodboard] = useState<boolean>(false);
+  const [moodboards, setMoodboards] = useState<any[]>([]);
+  const [activeMoodboard, setActiveMoodboard] = useState<any | null>(null);
+  const [activeMoodboardDesigns, setActiveMoodboardDesigns] = useState<Design[]>([]);
+  const [loadingActiveMoodboard, setLoadingActiveMoodboard] = useState<boolean>(false);
+
+  // Edit Moodboard states
+  const [isEditingDetails, setIsEditingDetails] = useState<boolean>(false);
+  const [editName, setEditName] = useState<string>("");
+  const [editDescription, setEditDescription] = useState<string>("");
+  const [editPrivacy, setEditPrivacy] = useState<"public" | "private" | "shared">("private");
+  const [boardToDelete, setBoardToDelete] = useState<any | null>(null);
+
+  // Subscribe to user's moodboards
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsubscribe = discoveryService.subscribeUserMoodboards(user.id, (boards) => {
+      setMoodboards(boards);
+      if (activeMoodboard) {
+        const updated = boards.find(b => b.id === activeMoodboard.id);
+        if (updated) {
+          setActiveMoodboard(updated);
+        }
+      }
+    });
+    return unsubscribe;
+  }, [user?.id, activeMoodboard?.id]);
+
+  // Fetch designs for the selected active moodboard
+  useEffect(() => {
+    if (!activeMoodboard) {
+      setActiveMoodboardDesigns([]);
+      return;
+    }
+    const fetchActiveMoodboardDesigns = async () => {
+      const designIds = activeMoodboard.designIds || [];
+      if (designIds.length === 0) {
+        setActiveMoodboardDesigns([]);
+        return;
+      }
+      setLoadingActiveMoodboard(true);
+      try {
+        const { db } = await import("../services/firebase");
+        const { collection, query, where, getDocs } = await import("firebase/firestore");
+        const designs: Design[] = [];
+        
+        // Chunk query by max 30 items
+        const chunks: string[][] = [];
+        for (let i = 0; i < designIds.length; i += 30) {
+          chunks.push(designIds.slice(i, i + 30));
+        }
+
+        for (const chunk of chunks) {
+          const q = query(collection(db, "designs"), where("id", "in", chunk));
+          const snap = await getDocs(q);
+          snap.forEach((doc) => {
+            designs.push({ id: doc.id, ...doc.data() } as Design);
+          });
+        }
+        setActiveMoodboardDesigns(designs);
+      } catch (err) {
+        console.error("Failed to fetch active moodboard designs:", err);
+      } finally {
+        setLoadingActiveMoodboard(false);
+      }
+    };
+    fetchActiveMoodboardDesigns();
+  }, [activeMoodboard, moodboards]); // trigger refetch if moodboard changes or updates (e.g. item added/removed)
+
+  const handleCreateMoodboard = async (name: string, description: string, privacy: "public" | "private" | "shared", collaborators: string[]) => {
+    try {
+      await discoveryService.createMoodboard(user.id, name, privacy, user.username, collaborators, description);
+      showToast(`Moodboard "${name}" created successfully!`, "success");
+      setShowCreateMoodboard(false);
+    } catch (err) {
+      console.error(err);
+      showToast("Could not create moodboard. Try again.", "error");
+    }
+  };
+
+  const handleUpdateMoodboard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeMoodboard || !editName.trim()) return;
+    try {
+      await discoveryService.updateMoodboard(activeMoodboard.id, {
+        name: editName.trim(),
+        description: editDescription.trim(),
+        privacy: editPrivacy,
+      });
+      showToast("Moodboard details updated successfully!", "success");
+      setIsEditingDetails(false);
+    } catch (err) {
+      console.error(err);
+      showToast("Could not update moodboard details.", "error");
+    }
+  };
+
+  // Get all unique styles that exist in the user's saved designs (using primary style)
   const availableStyles = React.useMemo(() => {
     if (!verifiedDesigns) return [];
     const stylesSet = new Set<string>();
     verifiedDesigns.forEach((design) => {
-      if (design.styles && Array.isArray(design.styles)) {
-        design.styles.forEach((style) => {
-          if (style) stylesSet.add(style);
-        });
-      }
+      const pStyle = (design as any).primaryStyle || (design.styles && design.styles[0]) || "Minimalist";
+      stylesSet.add(pStyle);
     });
     return Array.from(stylesSet).sort();
   }, [verifiedDesigns]);
 
-  // Group the designs by their style aesthetics
+  // Group the designs by their primary style aesthetics
   const groupedDesigns = React.useMemo(() => {
     if (!verifiedDesigns) return {} as Record<string, Design[]>;
     const groups: Record<string, Design[]> = {};
     
     verifiedDesigns.forEach((design) => {
-      const designStyles = (design.styles && design.styles.length > 0) ? design.styles : ["Minimalist"];
-      designStyles.forEach((style) => {
-        if (!groups[style]) {
-          groups[style] = [];
-        }
-        if (!groups[style].some((d) => d.id === design.id)) {
-          groups[style].push(design);
-        }
-      });
+      const pStyle = (design as any).primaryStyle || (design.styles && design.styles[0]) || "Minimalist";
+      if (!groups[pStyle]) {
+        groups[pStyle] = [];
+      }
+      groups[pStyle].push(design);
     });
     return groups;
   }, [verifiedDesigns]);
@@ -94,8 +191,61 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
     }
   }, [lightboxDesign]);
 
+  // Lightbox interaction states
   const [showViewerGuide, setShowViewerGuide] = useState(false);
   const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [likeLoading, setLikeLoading] = useState(false);
+
+  // Sync like status when opening a design in lightbox
+  useEffect(() => {
+    if (!lightboxDesign || !user?.id) return;
+    setLikesCount(lightboxDesign.stats?.likes || lightboxDesign.stats?.rightSwipes || 0);
+    discoveryService.checkIfUserLikedDesign(user.id, lightboxDesign.id).then((liked) => {
+      setIsLiked(liked);
+    });
+  }, [lightboxDesign, user?.id]);
+
+  const handleToggleLike = async () => {
+    if (!lightboxDesign || !user?.id) return;
+    setLikeLoading(true);
+    try {
+      const res = await discoveryService.toggleLikeDesign(user.id, lightboxDesign.id);
+      setIsLiked(res.liked);
+      setLikesCount(res.newCount);
+      
+      setVerifiedDesigns(prev => prev ? prev.map(d => {
+        if (d.id === lightboxDesign.id) {
+          return {
+            ...d,
+            stats: {
+              ...d.stats,
+              likes: res.newCount,
+              rightSwipes: res.newCount
+            }
+          };
+        }
+        return d;
+      }) : null);
+
+      setLightboxDesign(prev => prev ? {
+        ...prev,
+        stats: {
+          ...prev.stats,
+          likes: res.newCount,
+          rightSwipes: res.newCount
+        }
+      } : null);
+
+      showToast(res.liked ? "Added design to your likes!" : "Unliked design.", "success");
+    } catch (err) {
+      console.error("Failed to toggle like:", err);
+      showToast("Failed to update like status.", "error");
+    } finally {
+      setLikeLoading(false);
+    }
+  };
 
   // Guide overlay timeout and auto-dismiss on user interaction
   useEffect(() => {
@@ -576,49 +726,53 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
           {/* Aesthetic Controls & Mode Switcher */}
           <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-neutral-100 dark:border-white/5 pb-6">
             {/* Horizontal Filter Row */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-              <button
-                onClick={() => setSelectedStyle("All")}
-                className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                  selectedStyle === "All"
-                    ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm"
-                    : "bg-neutral-100 text-[#555555] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
-                }`}
-              >
-                <span>All Aesthetics</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
-                  selectedStyle === "All"
-                    ? "bg-white/20 text-white dark:bg-black/10 dark:text-black"
-                    : "bg-neutral-200 text-neutral-600 dark:bg-white/10 dark:text-[#A9A9A9]"
-                }`}>
-                  {verifiedDesigns.length}
-                </span>
-              </button>
+            {viewMode !== "moodboards" ? (
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+                <button
+                  onClick={() => setSelectedStyle("All")}
+                  className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    selectedStyle === "All"
+                      ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm"
+                      : "bg-neutral-100 text-[#555555] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
+                  }`}
+                >
+                  <span>All Aesthetics</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                    selectedStyle === "All"
+                      ? "bg-white/20 text-white dark:bg-black/10 dark:text-black"
+                      : "bg-neutral-200 text-neutral-600 dark:bg-white/10 dark:text-[#A9A9A9]"
+                  }`}>
+                    {verifiedDesigns.length}
+                  </span>
+                </button>
 
-              {availableStyles.map((style) => {
-                const count = groupedDesigns[style]?.length || 0;
-                return (
-                  <button
-                    key={style}
-                    onClick={() => setSelectedStyle(style)}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer shrink-0 flex items-center gap-1.5 ${
-                      selectedStyle === style
-                        ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm"
-                        : "bg-neutral-100 text-[#555555] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
-                    }`}
-                  >
-                    <span>{style}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
-                      selectedStyle === style
-                        ? "bg-white/20 text-white dark:bg-black/10 dark:text-black"
-                        : "bg-neutral-200 text-neutral-600 dark:bg-white/10 dark:text-[#A9A9A9]"
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                {availableStyles.map((style) => {
+                  const count = groupedDesigns[style]?.length || 0;
+                  return (
+                    <button
+                      key={style}
+                      onClick={() => setSelectedStyle(style)}
+                      className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                        selectedStyle === style
+                          ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm"
+                          : "bg-neutral-100 text-[#555555] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
+                      }`}
+                    >
+                      <span>{style}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                        selectedStyle === style
+                          ? "bg-white/20 text-white dark:bg-black/10 dark:text-black"
+                          : "bg-neutral-200 text-neutral-600 dark:bg-white/10 dark:text-[#A9A9A9]"
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
 
             {/* View Mode Switcher Toggle */}
             <div className="flex items-center gap-1 bg-neutral-100 dark:bg-white/5 p-1 rounded-xl self-start sm:self-auto">
@@ -646,6 +800,18 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               >
                 <Grid size={15} />
               </button>
+              <button
+                onClick={() => setViewMode("moodboards")}
+                className={`p-2 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center ${
+                  viewMode === "moodboards"
+                    ? "bg-white dark:bg-white/10 text-[#171717] dark:text-white shadow-sm"
+                    : "text-[#555555] dark:text-[#A9A9A9] hover:text-[#171717] dark:hover:text-white"
+                }`}
+                title="My Moodboards"
+                aria-label="My Moodboards"
+              >
+                <FolderPlus size={15} />
+              </button>
             </div>
           </div>
 
@@ -665,7 +831,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                   .map(([style, styleDesigns]) => (
                     <div key={style} className="text-left">
                       {/* Style Section Header */}
-                      <div className="mb-5 flex items-center justify-between border-b border-neutral-100 dark:border-white/5 pb-2.5">
+                      <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <h2 className="text-sm font-bold font-space uppercase tracking-wider text-[#171717] dark:text-white">
                             {style}
@@ -710,7 +876,13 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                                   <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight block">
                                     {design.title}
                                   </h4>
-                                  <span className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5">
+                                  <span 
+                                    className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5 hover:text-accent hover:underline transition-colors pointer-events-auto cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveDesignerId(design.userId);
+                                    }}
+                                  >
                                     @{creatorUsername}
                                   </span>
                                   {design.publishedAt && (
@@ -721,17 +893,28 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                                 </div>
 
                                 {/* Beautiful modern pill-shaped like indicator */}
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#C90023]/20 hover:bg-[#C90023]/30 border border-[#C90023]/40 text-white font-space font-black text-xs select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 hover:bg-black/70 border border-white/10 text-white backdrop-blur-md font-space font-semibold text-[11px] select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
                                   <Heart 
                                     size={12} 
-                                    fill="#FF3355" 
-                                    className="text-[#FF3355] shrink-0" 
+                                    className="text-rose-500 fill-rose-500 shrink-0" 
                                   />
                                   <span>
                                     {formatLikesCount(design.stats?.likes || 0)}
                                   </span>
                                 </div>
                               </div>
+
+                              {/* Direct Save to Moodboard button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectionDesign(design);
+                                }}
+                                className="absolute top-3 right-12 p-2.5 bg-black/60 hover:bg-[#C90023] text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                                title="Save to Moodboard"
+                              >
+                                <FolderPlus size={13} />
+                              </button>
 
                               {/* Direct Unsave button */}
                               <button
@@ -752,7 +935,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     </div>
                   ))}
               </motion.div>
-            ) : (
+            ) : viewMode === "grid" ? (
               <motion.div
                 key="grid-view"
                 initial={{ opacity: 0, y: 15 }}
@@ -766,8 +949,8 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                   {verifiedDesigns
                     .filter((design) => {
                       if (selectedStyle === "All") return true;
-                      const designStyles = (design.styles && design.styles.length > 0) ? design.styles : ["Minimalist"];
-                      return designStyles.includes(selectedStyle);
+                      const pStyle = (design as any).primaryStyle || (design.styles && design.styles[0]) || "Minimalist";
+                      return pStyle === selectedStyle;
                     })
                     .slice(0, visibleCount)
                     .map((design) => {
@@ -801,7 +984,13 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                               <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight block">
                                 {design.title}
                               </h4>
-                              <span className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5">
+                              <span 
+                                className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5 hover:text-accent hover:underline transition-colors pointer-events-auto cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveDesignerId(design.userId);
+                                }}
+                              >
                                 @{creatorUsername}
                               </span>
                               {design.publishedAt && (
@@ -812,17 +1001,28 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                             </div>
 
                             {/* Beautiful modern pill-shaped like indicator */}
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#C90023]/20 hover:bg-[#C90023]/30 border border-[#C90023]/40 text-white font-space font-black text-xs select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 hover:bg-black/70 border border-white/10 text-white backdrop-blur-md font-space font-semibold text-[11px] select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
                               <Heart 
                                 size={12} 
-                                fill="#FF3355" 
-                                className="text-[#FF3355] shrink-0" 
+                                className="text-rose-500 fill-rose-500 shrink-0" 
                               />
                               <span>
                                 {formatLikesCount(design.stats?.likes || 0)}
                               </span>
                             </div>
                           </div>
+
+                          {/* Direct Save to Moodboard button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectionDesign(design);
+                            }}
+                            className="absolute top-3 right-12 p-2.5 bg-black/60 hover:bg-[#C90023] text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                            title="Save to Moodboard"
+                          >
+                            <FolderPlus size={13} />
+                          </button>
 
                           {/* Direct Unsave button */}
                           <button
@@ -844,8 +1044,8 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 {/* Infinite Scroll / Lazy Loading Sentinel */}
                 {verifiedDesigns.filter((design) => {
                   if (selectedStyle === "All") return true;
-                  const designStyles = (design.styles && design.styles.length > 0) ? design.styles : ["Minimalist"];
-                  return designStyles.includes(selectedStyle);
+                  const pStyle = (design as any).primaryStyle || (design.styles && design.styles[0]) || "Minimalist";
+                  return pStyle === selectedStyle;
                 }).length > visibleCount && (
                   <div 
                     ref={loaderRef}
@@ -853,6 +1053,418 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                   >
                     <Loader id="lazy-loading-designs" size="sm" />
                     <span className="ml-2 animate-pulse">Loading more curations...</span>
+                  </div>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="moodboards-view"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.25 }}
+                className="w-full text-left"
+              >
+                {activeMoodboard ? (
+                  <div className="space-y-6">
+                    {/* Active Moodboard Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 dark:border-white/5 pb-4">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setActiveMoodboard(null)}
+                          className="p-2 rounded-full border border-neutral-200 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-white/5 text-neutral-500 dark:text-neutral-400 cursor-pointer"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <div>
+                          <h2 className="text-lg font-bold font-space flex items-center gap-2 text-neutral-900 dark:text-white uppercase tracking-wide">
+                            <FolderOpen size={20} className="text-[#C90023]" />
+                            {activeMoodboard.name}
+                          </h2>
+                          <div className="flex items-center gap-2 mt-1 text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                            <span className="uppercase">{activeMoodboard.privacy} board</span>
+                            <span>•</span>
+                            <Bookmark size={12} className="text-[#C90023] fill-[#C90023] shrink-0" />
+                            <span>{activeMoodboard.designIds?.length || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setEditName(activeMoodboard.name);
+                            setEditDescription(activeMoodboard.description || "");
+                            setEditPrivacy(activeMoodboard.privacy || "private");
+                            setIsEditingDetails(true);
+                          }}
+                          className="text-xs uppercase font-bold tracking-wide flex items-center gap-2"
+                        >
+                          <Edit3 size={14} />
+                          <span>Edit Details</span>
+                        </Button>
+                        {activeMoodboard.privacy === "public" && (
+                          <Button
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const link = `${window.location.origin}?moodboard=${activeMoodboard.id}`;
+                              navigator.clipboard.writeText(link);
+                              showToast(`Moodboard "${activeMoodboard.name}" link copied!`, "success");
+                            }}
+                            className="text-xs uppercase font-bold tracking-wide flex items-center gap-2"
+                          >
+                            <Share2 size={14} />
+                            <span>Share Board</span>
+                          </Button>
+                        )}
+                        <Button
+                          variant="danger"
+                          onClick={() => {
+                            setBoardToDelete(activeMoodboard);
+                          }}
+                          className="text-xs uppercase font-bold tracking-wide flex items-center gap-2 bg-[#C90023] hover:bg-red-700 text-white"
+                        >
+                          <Trash2 size={14} />
+                          <span>Delete Board</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Active Moodboard Description */}
+                    <div className="bg-neutral-50 dark:bg-white/5 rounded-2xl p-4 border border-neutral-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#C90023]">
+                          Board Description
+                        </span>
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                          {activeMoodboard.description || "No description provided for this board. Click \"Edit Details\" to add a description, or choose custom cover posters from the designs below."}
+                        </p>
+                      </div>
+                      {activeMoodboard.coverUrl && (
+                        <Button
+                          variant="secondary"
+                          onClick={async () => {
+                            try {
+                              await discoveryService.updateMoodboard(activeMoodboard.id, { coverUrl: "" });
+                              showToast("Cover image reset to default thumbnail.", "success");
+                              setActiveMoodboard((prev: any) => prev ? { ...prev, coverUrl: "" } : null);
+                            } catch (err) {
+                              console.error(err);
+                              showToast("Failed to reset cover image.", "error");
+                            }
+                          }}
+                          className="text-[10px] uppercase font-bold tracking-wide h-8"
+                        >
+                          Reset Cover
+                        </Button>
+                      )}
+                    </div>
+
+                    {loadingActiveMoodboard ? (
+                      <div className="py-20 flex flex-col items-center justify-center gap-3">
+                        <Loader id="moodboard-designs-loader" size="md" />
+                        <span className="text-xs font-mono text-neutral-400 uppercase tracking-widest animate-pulse">
+                          Syncing board inspiration...
+                        </span>
+                      </div>
+                    ) : activeMoodboardDesigns.length === 0 ? (
+                      <div className="py-16 text-center border border-dashed border-neutral-200 dark:border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center text-neutral-400">
+                        <Layers size={32} className="mb-2 opacity-30 text-[#C90023]" />
+                        <p className="text-xs font-mono uppercase tracking-widest">
+                          No designs inside this moodboard yet.
+                        </p>
+                        <p className="text-[11px] text-neutral-500 mt-1 max-w-xs mx-auto text-center">
+                          You can add designs here from your Saved Grid or Grouped views.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {activeMoodboardDesigns.map((design) => {
+                          const creatorUsername = usernames[design.userId] || "loading...";
+                          return (
+                            <motion.div
+                              key={`mb-${design.id}`}
+                              layout
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.9 }}
+                              className="group relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] cursor-pointer shadow-md hover:shadow-xl transition-all duration-300"
+                              onClick={() => setLightboxDesign(design)}
+                            >
+                              <img
+                                src={design.imageUrl}
+                                alt={design.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
+                              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-4 text-left z-10 pointer-events-none">
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate block">
+                                    {design.category || "Design"}
+                                  </span>
+                                  <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight block">
+                                    {design.title}
+                                  </h4>
+                                  <span 
+                                    className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5 hover:text-accent hover:underline transition-colors pointer-events-auto cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveDesignerId(design.userId);
+                                    }}
+                                  >
+                                    @{creatorUsername}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 hover:bg-black/70 border border-white/10 text-white backdrop-blur-md font-space font-semibold text-[11px] select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
+                                  <Heart size={12} className="text-rose-500 fill-rose-500 shrink-0" />
+                                  <span>{formatLikesCount(design.stats?.likes || 0)}</span>
+                                </div>
+                              </div>
+
+                              {/* Set as Cover button */}
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await discoveryService.updateMoodboard(activeMoodboard.id, { coverUrl: design.imageUrl });
+                                    showToast("Cover image set successfully!", "success");
+                                    setActiveMoodboard((prev: any) => prev ? { ...prev, coverUrl: design.imageUrl } : null);
+                                  } catch (err) {
+                                    console.error(err);
+                                    showToast("Failed to set cover image.", "error");
+                                  }
+                                }}
+                                className={`absolute top-3 left-3 p-2.5 rounded-full transition-all duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10 ${
+                                  activeMoodboard.coverUrl === design.imageUrl
+                                    ? "bg-[#C90023] text-white opacity-100 scale-110"
+                                    : "bg-black/60 hover:bg-[#C90023] text-white opacity-0 group-hover:opacity-100"
+                                }`}
+                                title={activeMoodboard.coverUrl === design.imageUrl ? "Current Cover Image" : "Set as Cover Image"}
+                              >
+                                <Image size={13} />
+                              </button>
+
+                              {/* Save/Remove from moodboard toggle button */}
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const added = await discoveryService.toggleDesignInMoodboard(activeMoodboard.id, design.id);
+                                    if (!added) {
+                                      showToast(`Removed from "${activeMoodboard.name}"`, "info");
+                                      // update local active moodboard designIds
+                                      setActiveMoodboard((prev: any) => prev ? {
+                                        ...prev,
+                                        designIds: prev.designIds.filter((id: string) => id !== design.id)
+                                      } : null);
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                    showToast("Could not remove design from moodboard", "error");
+                                  }
+                                }}
+                                className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                                title="Remove from moodboard"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="pt-6">
+                    {moodboards.length === 0 ? (
+                      <div className="py-24 text-center flex flex-col items-center justify-center border border-dashed border-neutral-200 dark:border-white/10 rounded-3xl p-8">
+                        <FolderPlus size={44} className="mb-3 text-[#C90023]/50" />
+                        <h4 className="text-base font-bold font-space text-neutral-800 dark:text-neutral-200 uppercase tracking-wide">
+                          No Moodboards Found
+                        </h4>
+                        <p className="text-xs text-neutral-500 mt-2 max-w-xs mx-auto leading-relaxed">
+                          Organize your saved mockups and layout inspirations into beautiful public, private, or collaborative shared moodboards.
+                        </p>
+                        <Button
+                          onClick={() => setShowCreateMoodboard(true)}
+                          className="mt-6 text-xs uppercase font-bold tracking-wide"
+                        >
+                          Create first board
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-6">
+                        {/* New Moodboard Folder Card */}
+                        <div
+                          onClick={() => setShowCreateMoodboard(true)}
+                          className="group relative mt-6 h-[230px] text-left transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                        >
+                          {/* Folder Tab Placeholder */}
+                          <div className={`absolute top-0 left-0 w-28 h-[26px] -translate-y-[25px] rounded-t-2xl border-t border-x border-dashed transition-all duration-300 flex items-center justify-center gap-1.5 z-20 ${
+                            theme === "dark"
+                              ? "bg-[#1E1E1E]/50 border-white/10 text-neutral-500 group-hover:border-accent/40"
+                              : "bg-white/80 border-neutral-300 text-neutral-500 group-hover:border-[#C90023]/40 shadow-2xs"
+                          }`}>
+                            <Plus size={10} className="text-[#C90023]" />
+                            <span className="text-[9px] font-mono font-bold uppercase tracking-wider">
+                              New Board
+                            </span>
+                          </div>
+
+                          {/* Main Folder Body Dotted */}
+                          <div className={`w-full h-full relative rounded-tr-3xl rounded-b-3xl border border-dashed flex flex-col items-center justify-center text-center p-6 transition-all duration-300 ${
+                            theme === "dark"
+                              ? "bg-[#1E1E1E]/30 border-white/10 hover:border-accent/40 hover:bg-white/[0.02]"
+                              : "bg-neutral-50/60 border-neutral-300 hover:border-[#C90023]/40 hover:bg-neutral-100/50"
+                          }`}>
+                            <div className="w-10 h-10 rounded-full border border-dashed border-neutral-300 dark:border-white/10 group-hover:border-[#C90023]/30 group-hover:bg-[#C90023]/10 flex items-center justify-center text-neutral-500 dark:text-neutral-400 group-hover:text-[#C90023] transition-all mb-3">
+                              <Plus size={20} />
+                            </div>
+                            <span className="text-xs font-bold font-space text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white uppercase tracking-wide">
+                              Create Board
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Existing Boards */}
+                        {moodboards.map((board) => {
+                          const boardDesigns = (board.designIds || [])
+                            .map((id: string) => (verifiedDesigns || []).find((d) => d.id === id))
+                            .filter((d: any): d is Design => !!d);
+                          const previewSlots = [0, 1, 2, 3];
+
+                          return (
+                            <div
+                              key={board.id}
+                              onClick={() => setActiveMoodboard(board)}
+                              className="group relative mt-6 h-[230px] text-left transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                            >
+                              {/* Folder Tab */}
+                              <div className={`absolute top-0 left-0 w-28 h-[26px] -translate-y-[25px] rounded-t-2xl border-t border-x transition-all duration-300 flex items-center justify-center gap-1.5 z-20 ${
+                                theme === "dark"
+                                  ? "bg-[#1E1E1E] border-white/10 text-neutral-400 group-hover:border-accent/40"
+                                  : "bg-white border-neutral-300 text-neutral-600 group-hover:border-[#C90023]/40 shadow-2xs"
+                              }`}>
+                                {board.privacy === "private" && <Lock size={10} />}
+                                {board.privacy === "public" && <Globe size={10} className="text-[#C90023]" />}
+                                {board.privacy === "shared" && <Users size={10} className="text-blue-400" />}
+                                <span className="text-[9px] font-mono font-bold uppercase tracking-wider">
+                                  {board.privacy}
+                                </span>
+                              </div>
+
+                              {/* Main Folder Body */}
+                              <div className={`w-full h-full relative rounded-tr-3xl rounded-b-3xl border flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 ${
+                                theme === "dark"
+                                  ? "bg-[#1E1E1E] border-white/10 group-hover:border-accent/40"
+                                  : "bg-white border-neutral-300 group-hover:border-[#C90023]/40"
+                              }`}>
+                                {/* Upper 2x2 Grid Preview Area */}
+                                <div className="relative h-[145px] p-2.5 bg-neutral-100/90 dark:bg-black/40 border-b border-neutral-200 dark:border-white/10 overflow-hidden">
+                                  <div className="grid grid-cols-2 gap-1.5 h-full w-full">
+                                    {previewSlots.map((idx) => {
+                                      const designItem = boardDesigns[idx];
+                                      return designItem ? (
+                                        <div key={idx} className="relative w-full h-full rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+                                          <img
+                                            src={designItem.imageUrl}
+                                            alt={designItem.title}
+                                            referrerPolicy="no-referrer"
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div
+                                          key={idx}
+                                          className={`w-full h-full rounded-xl border border-dashed flex items-center justify-center transition-colors ${
+                                            theme === "dark"
+                                              ? "border-white/10 bg-white/[0.03] text-neutral-600"
+                                              : "border-neutral-200 bg-white/60 text-neutral-300"
+                                          }`}
+                                        >
+                                          <Sparkles size={11} className="opacity-40" />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Top Bar Floating Quick Actions */}
+                                  <div className="absolute top-3 right-3 flex items-center gap-1 z-20">
+                                    {board.privacy === "public" && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const link = `${window.location.origin}?moodboard=${board.id}`;
+                                          navigator.clipboard.writeText(link);
+                                          showToast(`Moodboard "${board.name}" link copied!`, "success");
+                                        }}
+                                        className={`p-1.5 rounded-full border transition-all cursor-pointer ${
+                                          theme === "dark"
+                                            ? "bg-black/60 border-white/20 text-neutral-300 hover:bg-black/90 hover:text-white"
+                                            : "bg-white/95 border-neutral-300 text-neutral-700 hover:bg-white hover:text-black shadow-xs"
+                                        }`}
+                                        title="Copy public link"
+                                      >
+                                        <Share2 size={11} />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setBoardToDelete(board);
+                                      }}
+                                      className={`p-1.5 rounded-full border transition-all cursor-pointer ${
+                                        theme === "dark"
+                                          ? "bg-black/60 border-white/20 text-neutral-300 hover:bg-red-950/80 hover:border-red-500 hover:text-red-400"
+                                          : "bg-white/95 border-neutral-300 text-neutral-700 hover:bg-red-50 hover:border-red-400 hover:text-red-600 shadow-xs"
+                                      }`}
+                                      title="Delete board"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Bottom Info Panel */}
+                                <div className={`p-3.5 flex items-center justify-between z-20 transition-colors ${
+                                  theme === "dark"
+                                    ? "bg-[#181818] text-white"
+                                    : "bg-neutral-50/90 text-[#171717]"
+                                }`}>
+                                  <div className="min-w-0 flex-1 pr-2">
+                                    <h4 className={`text-xs font-bold font-space truncate uppercase tracking-wide ${
+                                      theme === "dark" ? "text-white" : "text-neutral-900"
+                                    }`}>
+                                      {board.name}
+                                    </h4>
+                                    
+                                    <p className={`text-[10px] truncate mt-0.5 ${
+                                      theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                                    }`}>
+                                      {board.description || "No description provided."}
+                                    </p>
+                                  </div>
+
+                                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border shrink-0 ${
+                                    theme === "dark"
+                                      ? "bg-white/5 border-white/10 text-neutral-300"
+                                      : "bg-white border-neutral-200 text-neutral-700 shadow-2xs"
+                                  }`}>
+                                    <Bookmark size={10} className="text-[#C90023] fill-[#C90023]" />
+                                    <span className="text-[10px] font-mono font-bold">
+                                      {board.designIds?.length || 0}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -899,11 +1511,12 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -10 }}
-                      className={`flex items-center gap-2 p-1.5 pl-2.5 pr-4 rounded-full border shadow-md backdrop-blur-md transition-colors ${
+                      className={`flex items-center gap-2 p-1.5 pl-2.5 pr-4 rounded-full border shadow-md backdrop-blur-md transition-all cursor-pointer hover:border-accent hover:bg-accent/5 hover:scale-105 ${
                         theme === "dark"
                           ? "bg-[#1E1E1E]/90 border-white/10 text-white"
                           : "bg-white/95 border-neutral-200 text-[#171717]"
                       }`}
+                      onClick={() => setActiveDesignerId(lightboxDesign.userId)}
                     >
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 ${
                         theme === "dark"
@@ -977,16 +1590,16 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2.5 sm:gap-4 px-5 py-3 rounded-2xl bg-neutral-900/90 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10"
+                  className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2 sm:gap-4 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-neutral-900/95 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10 min-w-[100px] sm:min-w-0"
                 >
                   <div className="flex items-center gap-2">
-                    <ZoomIn size={16} className="text-accent animate-pulse" />
-                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll to Zoom</span>
+                    <ZoomIn size={14} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll</span>
                   </div>
                   <div className="hidden sm:block h-4 w-px bg-white/20 dark:bg-neutral-300" />
                   <div className="flex items-center gap-2">
-                    <Move size={16} className="text-accent animate-pulse" />
-                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan to Move</span>
+                    <Move size={14} className="text-accent animate-pulse" />
+                    <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan</span>
                   </div>
                 </motion.div>
               )}
@@ -1091,8 +1704,11 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               <div className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 ${
                 theme === "dark" ? "border-divider-dark" : "border-neutral-100"
               }`}>
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 ${
+                <div 
+                  className="flex items-center gap-2.5 min-w-0 cursor-pointer group/creator hover:opacity-85 transition-opacity"
+                  onClick={() => setActiveDesignerId(lightboxDesign.userId)}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 transition-colors group-hover/creator:border-accent ${
                     theme === "dark"
                       ? "bg-white/10 border border-white/20 text-white"
                       : "bg-accent/20 border border-accent/30 text-accent"
@@ -1100,7 +1716,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     {(usernames[lightboxDesign.userId] || "U").slice(0, 1).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-xs font-bold font-space truncate ${
+                    <p className={`text-xs font-bold font-space truncate group-hover/creator:text-accent transition-colors ${
                       theme === "dark" ? "text-white" : "text-[#171717]"
                     }`}>
                       @{usernames[lightboxDesign.userId] || "Creator"}
@@ -1135,36 +1751,69 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                   }`}>
                     {lightboxDesign.title}
                   </h3>
-                  <div className="flex flex-wrap gap-2 mt-3.5">
-                    {lightboxDesign.category && (
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
-                        theme === "dark"
-                          ? "bg-white/10 text-white border-white/25"
-                          : "bg-accent/10 text-accent border-accent/20"
-                      }`}>
-                        {lightboxDesign.category}
-                      </span>
-                    )}
-                    {lightboxDesign.format && (
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
-                        theme === "dark"
-                          ? "bg-white/5 text-neutral-300 border-white/10"
-                          : "bg-neutral-100 text-neutral-700 border-neutral-200"
-                      }`}>
-                        {lightboxDesign.format}
-                      </span>
-                    )}
-                    {lightboxDesign.styles && lightboxDesign.styles.map((style, idx) => (
-                      <span key={idx} className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
-                        theme === "dark"
-                          ? "bg-white/5 text-neutral-300 border-white/10"
-                          : "bg-neutral-100 text-neutral-700 border-[#ECECEC]"
-                      }`}>
-                        {style}
-                      </span>
-                    ))}
-                  </div>
                 </div>
+
+                {/* Likes Button */}
+                <div className={`pt-4 border-t ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}>
+                  <button
+                    onClick={handleToggleLike}
+                    disabled={likeLoading}
+                    className={`px-4 py-2 rounded-xl text-xs font-mono font-bold flex items-center gap-2 border transition-all cursor-pointer ${
+                      isLiked
+                        ? "bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30"
+                        : theme === "dark" 
+                          ? "bg-white/5 text-neutral-300 border-white/10 hover:bg-white/10 hover:text-white"
+                          : "bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200"
+                    }`}
+                  >
+                    <Heart size={16} className={isLiked ? "fill-rose-500 text-rose-500" : "text-rose-500"} />
+                    <span>{formatLikesCount(likesCount)} Likes</span>
+                  </button>
+                </div>
+
+                {/* Category & Style Tags Section (Separate from Likes) */}
+                {(lightboxDesign.category || lightboxDesign.format || (lightboxDesign.styles && lightboxDesign.styles.length > 0)) && (
+                  <div className={`pt-5 border-t ${
+                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                  }`}>
+                    <h4 className={`text-[10px] font-mono uppercase tracking-wider mb-2.5 ${
+                      theme === "dark" ? "text-neutral-400" : "text-neutral-500"
+                    }`}>
+                      Tags & Style Categories
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {lightboxDesign.category && (
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                          theme === "dark"
+                            ? "bg-white/10 text-white border-white/25"
+                            : "bg-accent/10 text-accent border-accent/20"
+                        }`}>
+                          {lightboxDesign.category}
+                        </span>
+                      )}
+                      {lightboxDesign.format && (
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                          theme === "dark"
+                            ? "bg-white/5 text-neutral-300 border-white/10"
+                            : "bg-neutral-100 text-neutral-700 border-neutral-200"
+                        }`}>
+                          {lightboxDesign.format}
+                        </span>
+                      )}
+                      {lightboxDesign.styles && lightboxDesign.styles.map((style, idx) => (
+                        <span key={idx} className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                          theme === "dark"
+                            ? "bg-white/5 text-neutral-300 border-white/10"
+                            : "bg-neutral-100 text-neutral-700 border-[#ECECEC]"
+                        }`}>
+                          {style}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {lightboxDesign.description && (
                   <div className={`pt-5 border-t ${
@@ -1182,6 +1831,13 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     </p>
                   </div>
                 )}
+
+                {/* Comments & Feedback Section */}
+                <div className={`pt-5 border-t ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}>
+                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                </div>
               </div>
             </motion.div>
 
@@ -1203,8 +1859,11 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
               <div className={`p-4 border-b flex items-center justify-between gap-3 shrink-0 ${
                 theme === "dark" ? "border-divider-dark" : "border-neutral-100"
               }`}>
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 ${
+                <div 
+                  className="flex items-center gap-2.5 min-w-0 cursor-pointer group/creator hover:opacity-85 transition-opacity"
+                  onClick={() => setActiveDesignerId(lightboxDesign.userId)}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-space shrink-0 transition-colors group-hover/creator:border-accent ${
                     theme === "dark"
                       ? "bg-white/10 border border-white/20 text-white"
                       : "bg-accent/20 border border-accent/30 text-accent"
@@ -1212,7 +1871,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     {(usernames[lightboxDesign.userId] || "U").slice(0, 1).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-xs font-bold font-space truncate ${
+                    <p className={`text-xs font-bold font-space truncate group-hover/creator:text-accent transition-colors ${
                       theme === "dark" ? "text-white" : "text-[#171717]"
                     }`}>
                       @{usernames[lightboxDesign.userId] || "Creator"}
@@ -1247,37 +1906,64 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                   }`}>
                     {lightboxDesign.title}
                   </h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {lightboxDesign.category && (
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider border ${
-                        theme === "dark"
-                          ? "bg-white/10 text-white border-white/25"
-                          : "bg-accent/10 text-accent border-accent/20"
-                      }`}>
-                        {lightboxDesign.category}
-                      </span>
-                    )}
-                    {lightboxDesign.format && (
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider border ${
-                        theme === "dark"
-                          ? "bg-white/5 text-neutral-300 border-white/10"
-                          : "bg-neutral-100 text-neutral-700 border-neutral-200"
-                      }`}>
-                        {lightboxDesign.format}
-                      </span>
-                    )}
-                    {lightboxDesign.styles && lightboxDesign.styles.map((style, idx) => (
-                      <span key={idx} className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider border ${
-                        theme === "dark"
-                          ? "bg-white/5 text-neutral-300 border-white/10"
-                          : "bg-neutral-100 text-neutral-700 border-[#ECECEC]"
-                      }`}>
-                        {style}
-                      </span>
-                    ))}
-                  </div>
                 </div>
 
+                {/* Mobile Likes Button */}
+                <div className={`pt-3 border-t ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}>
+                  <button
+                    onClick={handleToggleLike}
+                    disabled={likeLoading}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-2 border transition-all cursor-pointer ${
+                      isLiked
+                        ? "bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30"
+                        : theme === "dark" 
+                          ? "bg-white/5 text-neutral-300 border-white/10 hover:bg-white/10 hover:text-white"
+                          : "bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200"
+                    }`}
+                  >
+                    <Heart size={15} className={isLiked ? "fill-rose-500 text-rose-500" : "text-rose-500"} />
+                    <span>{formatLikesCount(likesCount)} Likes</span>
+                  </button>
+                </div>
+
+                {/* Mobile Tags Section */}
+                {(lightboxDesign.category || lightboxDesign.format || (lightboxDesign.styles && lightboxDesign.styles.length > 0)) && (
+                  <div className={`pt-3 border-t ${
+                    theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                  }`}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {lightboxDesign.category && (
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider border ${
+                          theme === "dark"
+                            ? "bg-white/10 text-white border-white/25"
+                            : "bg-accent/10 text-accent border-accent/20"
+                        }`}>
+                          {lightboxDesign.category}
+                        </span>
+                      )}
+                      {lightboxDesign.format && (
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider border ${
+                          theme === "dark"
+                            ? "bg-white/5 text-neutral-300 border-white/10"
+                            : "bg-neutral-100 text-neutral-700 border-neutral-200"
+                        }`}>
+                          {lightboxDesign.format}
+                        </span>
+                      )}
+                      {lightboxDesign.styles && lightboxDesign.styles.map((style, idx) => (
+                        <span key={idx} className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold uppercase tracking-wider border ${
+                          theme === "dark"
+                            ? "bg-white/5 text-neutral-300 border-white/10"
+                            : "bg-neutral-100 text-neutral-700 border-[#ECECEC]"
+                        }`}>
+                          {style}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {lightboxDesign.description && (
                   <div className={`pt-3 border-t ${
                     theme === "dark" ? "border-divider-dark" : "border-neutral-100"
@@ -1294,6 +1980,13 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     </p>
                   </div>
                 )}
+
+                {/* Mobile Comments & Feedback */}
+                <div className={`pt-3 border-t ${
+                  theme === "dark" ? "border-divider-dark" : "border-neutral-100"
+                }`}>
+                  <DesignCommentsSection design={lightboxDesign} user={user} theme={theme} />
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1330,6 +2023,170 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
           Are you sure you want to remove <span className="font-semibold text-[#171717] dark:text-white">{designToDelete?.title}</span> from your saved vault? This action cannot be undone.
         </p>
       </Modal>
+
+      {/* Moodboard Modals */}
+      <MoodboardSelectionModal
+        show={!!selectionDesign}
+        theme={theme}
+        designId={selectionDesign?.id || ""}
+        designTitle={selectionDesign?.title || ""}
+        moodboards={moodboards}
+        onClose={() => setSelectionDesign(null)}
+        onOpenCreateModal={() => {
+          setShowCreateMoodboard(true);
+        }}
+        showToast={showToast}
+      />
+
+      <CreateMoodboardModal
+        show={showCreateMoodboard}
+        theme={theme}
+        onClose={() => setShowCreateMoodboard(false)}
+        onCreate={handleCreateMoodboard}
+      />
+
+      {/* Edit Moodboard Details Modal */}
+      <Modal
+        id="edit-moodboard-details-modal"
+        show={isEditingDetails}
+        onClose={() => setIsEditingDetails(false)}
+        title="Edit Board Details"
+        size="md"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setIsEditingDetails(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="flex-1 bg-[#C90023] hover:bg-[#A3001C] text-white"
+              onClick={handleUpdateMoodboard}
+              disabled={!editName.trim()}
+            >
+              Save Changes
+            </Button>
+          </div>
+        }
+      >
+        <form onSubmit={handleUpdateMoodboard} className="space-y-4">
+          <div>
+            <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1.5 text-neutral-500 dark:text-neutral-400">
+              Board Name *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Living Room Redesign"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full px-4 py-3 text-sm rounded-xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-[#1E1E1E] text-neutral-800 dark:text-white focus:outline-none focus:border-[#C90023] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1.5 text-neutral-500 dark:text-neutral-400">
+              Description (Optional)
+            </label>
+            <textarea
+              placeholder="What is this moodboard about? Add some context, goals, or notes..."
+              rows={3}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              className="w-full px-4 py-3 text-sm rounded-xl border border-neutral-200 dark:border-white/10 bg-white dark:bg-[#1E1E1E] text-neutral-800 dark:text-white focus:outline-none focus:border-[#C90023] transition-colors resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono font-bold uppercase tracking-wider mb-1.5 text-neutral-500 dark:text-neutral-400">
+              Privacy Settings
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "private", label: "Private", desc: "Only you" },
+                { value: "public", label: "Public", desc: "Anyone can view" },
+                { value: "shared", label: "Shared", desc: "Collaborators" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setEditPrivacy(opt.value as any)}
+                  className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                    editPrivacy === opt.value
+                      ? "border-[#C90023] bg-[#C90023]/5 text-[#C90023]"
+                      : "border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-white/5 text-neutral-500 hover:border-neutral-300 dark:hover:border-white/20"
+                  }`}
+                >
+                  <span className="text-xs font-bold font-space uppercase tracking-wide">
+                    {opt.label}
+                  </span>
+                  <span className="text-[9px] text-neutral-400">
+                    {opt.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Moodboard Confirmation Modal */}
+      <Modal
+        id="delete-moodboard-modal"
+        show={!!boardToDelete}
+        onClose={() => setBoardToDelete(null)}
+        title="Delete Moodboard"
+        size="sm"
+        footer={
+          <div className="flex gap-3 w-full">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setBoardToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1 bg-[#C90023] hover:bg-red-700 text-white font-bold"
+              onClick={async () => {
+                if (!boardToDelete) return;
+                try {
+                  await discoveryService.deleteMoodboard(boardToDelete.id);
+                  showToast(`Moodboard "${boardToDelete.name}" deleted successfully.`, "success");
+                  if (activeMoodboard && activeMoodboard.id === boardToDelete.id) {
+                    setActiveMoodboard(null);
+                  }
+                } catch (err) {
+                  console.error(err);
+                  showToast("Could not delete moodboard. Try again.", "error");
+                } finally {
+                  setBoardToDelete(null);
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-[#555555] dark:text-[#A9A9A9] leading-relaxed">
+          Are you sure you want to delete the moodboard <span className="font-semibold text-[#171717] dark:text-white uppercase">"{boardToDelete?.name}"</span>? All layout inspirations inside will remain in your saved vault, but this board will be permanently removed. This action cannot be undone.
+        </p>
+      </Modal>
+
+      {activeDesignerId && (
+        <DesignerProfileModal
+          show={!!activeDesignerId}
+          theme={theme}
+          designerId={activeDesignerId}
+          onClose={() => setActiveDesignerId(null)}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 };
