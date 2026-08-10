@@ -341,15 +341,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-row flex-wrap items-center gap-3 w-full md:w-auto">
+        {/* Desktop buttons - full text and horizontally aligned */}
+        <div className="hidden md:flex flex-row items-center gap-3 md:w-auto">
           {!user.emailVerified && (
             <>
               <Button
-                id="check-verification-status-btn"
+                id="check-verification-status-btn-desktop"
                 onClick={handleCheckVerification}
                 loading={isCheckingStatus}
                 variant="primary"
-                className="flex-1 sm:w-auto sm:flex-none py-2.5 h-auto text-xs font-semibold px-5 relative"
+                className="py-2.5 h-auto text-xs font-semibold px-5 relative"
               >
                 <Mail size={14} className="mr-1.5" />
                 <span>Verify My Status</span>
@@ -359,11 +360,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               </Button>
               <Button
-                id="resend-verification-link-btn"
+                id="resend-verification-link-btn-desktop"
                 onClick={handleResendLink}
                 disabled={resendCooldown > 0 || isResending}
                 variant="secondary"
-                className="flex-1 sm:w-auto sm:flex-none py-2.5 h-auto text-xs font-semibold px-4"
+                className="py-2.5 h-auto text-xs font-semibold px-4"
                 loading={isResending}
               >
                 <span>{resendCooldown > 0 ? `Resend (${resendCooldown}s)` : "Resend Email"}</span>
@@ -371,31 +372,83 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </>
           )}
           <Button
-            id="share-client-link-btn"
+            id="share-client-link-btn-desktop"
             onClick={handleShareClientLink}
             variant="primary"
-            className="flex-1 sm:w-auto sm:flex-none py-2.5 h-auto text-xs font-semibold px-6 bg-accent text-white"
+            className="py-2.5 h-auto text-xs font-semibold px-6 bg-accent text-white"
           >
             <Share2 size={14} className="mr-1.5" />
             <span>Portfolio</span>
           </Button>
           <Button
-            id="edit-profile-trigger-btn"
+            id="edit-profile-trigger-btn-desktop"
             onClick={onEditProfile}
             variant="secondary"
-            className="flex-1 sm:w-auto sm:flex-none py-2.5 h-auto text-xs font-semibold px-6"
+            className="py-2.5 h-auto text-xs font-semibold px-6"
           >
             <Edit3 size={14} className="mr-1.5" />
             <span>Edit Profile</span>
           </Button>
-          <Button
-            id="dashboard-theme-toggle"
-            variant="secondary"
-            onClick={onToggleTheme}
-            className="w-auto py-2.5 px-4 h-auto text-xs md:hidden"
-          >
-            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-          </Button>
+        </div>
+
+        {/* Mobile/Tablet buttons - three icon buttons side-by-side in a perfect aligned row */}
+        <div className="flex md:hidden flex-col items-center gap-3 w-full">
+          {!user.emailVerified && (
+            <div className="flex flex-row gap-2 w-full justify-center">
+              <Button
+                id="check-verification-status-btn-mobile"
+                onClick={handleCheckVerification}
+                loading={isCheckingStatus}
+                variant="primary"
+                className="flex-1 py-2.5 h-auto text-xs font-semibold px-3 relative"
+              >
+                <Mail size={12} className="mr-1" />
+                <span className="truncate">Verify Status</span>
+              </Button>
+              <Button
+                id="resend-verification-link-btn-mobile"
+                onClick={handleResendLink}
+                disabled={resendCooldown > 0 || isResending}
+                variant="secondary"
+                className="flex-1 py-2.5 h-auto text-xs font-semibold px-2"
+                loading={isResending}
+              >
+                <span className="truncate">{resendCooldown > 0 ? `${resendCooldown}s` : "Resend"}</span>
+              </Button>
+            </div>
+          )}
+          
+          <div className="flex flex-row items-center justify-center gap-3 w-full">
+            <Button
+              id="share-client-link-btn-mobile"
+              onClick={handleShareClientLink}
+              variant="primary"
+              className="w-12 h-12 !px-0 !py-0 flex items-center justify-center bg-accent text-white rounded-xl shadow-sm shrink-0"
+              title="Portfolio"
+            >
+              <Share2 size={16} />
+            </Button>
+            
+            <Button
+              id="edit-profile-trigger-btn-mobile"
+              onClick={onEditProfile}
+              variant="secondary"
+              className="w-12 h-12 !px-0 !py-0 flex items-center justify-center rounded-xl shadow-sm shrink-0"
+              title="Edit Profile"
+            >
+              <Edit3 size={16} />
+            </Button>
+
+            <Button
+              id="dashboard-theme-toggle-mobile"
+              variant="secondary"
+              onClick={onToggleTheme}
+              className="w-12 h-12 !px-0 !py-0 flex items-center justify-center rounded-xl shadow-sm shrink-0"
+              title="Toggle Theme"
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -460,13 +513,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-mono uppercase text-accent tracking-widest font-bold">Creator Loop Intelligence</span>
-            <h2 className="text-xl sm:text-2xl font-bold font-space text-[#171717] dark:text-white tracking-tight mt-1">
+            <h2 className="text-lg font-bold font-space text-[#171717] dark:text-white tracking-tight">
               Design Score Insights
             </h2>
-            <p className="text-sm text-[#555555] dark:text-[#D7D7D7] mt-1.5 leading-relaxed max-w-2xl">
-              Real-time feed analytics tracking audience reception, bookmark velocity, and aggregated quality scores.
-            </p>
           </div>
         </div>
 
@@ -476,72 +525,114 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>Computing performance metrics...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {/* Stat 1: Total Likes */}
-            <Tooltip content="Total likes received across your published designs" theme={theme} position="top">
-              <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-red-500/30 transition-all shadow-sm">
-                <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                  <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Likes</span>
-                  <Heart size={16} className="text-[#C90023] fill-[#C90023]/20 shrink-0" />
+          <>
+            {/* Desktop Metrics - Bulky Cards */}
+            <div className="hidden sm:grid sm:grid-cols-4 gap-4">
+              {/* Stat 1: Total Likes */}
+              <Tooltip content="Total likes received across your published designs" theme={theme} position="top">
+                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-red-500/30 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Likes</span>
+                    <Heart size={16} className="text-[#C90023] fill-[#C90023]/20 shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics?.rightSwipes || 0}
+                  </p>
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                  {metrics?.rightSwipes || 0}
-                </p>
-              </div>
-            </Tooltip>
+              </Tooltip>
 
-            {/* Stat 2: Dislikes */}
-            <Tooltip content="Total skips or pass ratings received" theme={theme} position="top">
-              <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-neutral-500/30 transition-all shadow-sm">
-                <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                  <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Dislikes</span>
-                  <X size={16} className="text-neutral-400 shrink-0" />
+              {/* Stat 2: Dislikes */}
+              <Tooltip content="Total skips or pass ratings received" theme={theme} position="top">
+                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-neutral-500/30 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Dislikes</span>
+                    <X size={16} className="text-neutral-400 shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {Math.max(0, (metrics?.totalReviews || 0) - (metrics?.rightSwipes || 0))}
+                  </p>
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                  {Math.max(0, (metrics?.totalReviews || 0) - (metrics?.rightSwipes || 0))}
-                </p>
-              </div>
-            </Tooltip>
+              </Tooltip>
 
-            {/* Stat 3: Saves */}
-            <Tooltip content="Times your designs were bookmarked to user vaults" theme={theme} position="top">
-              <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-amber-500/30 transition-all shadow-sm">
-                <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                  <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Saves</span>
-                  <Bookmark size={16} className="text-amber-500 shrink-0" />
+              {/* Stat 3: Saves */}
+              <Tooltip content="Times your designs were bookmarked to user vaults" theme={theme} position="top">
+                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-amber-500/30 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Saves</span>
+                    <Bookmark size={16} className="text-amber-500 shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics?.saves || 0}
+                  </p>
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                  {metrics?.saves || 0}
-                </p>
-              </div>
-            </Tooltip>
+              </Tooltip>
 
-            {/* Stat 4: Performance Score */}
-            <Tooltip content="Overall positive approval score" theme={theme} position="top">
-              <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-indigo-500/30 transition-all shadow-sm">
-                <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                  <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Overall Rating</span>
-                  <Sparkles size={16} className="text-indigo-500 shrink-0" />
+              {/* Stat 4: Performance Score */}
+              <Tooltip content="Overall positive approval score" theme={theme} position="top">
+                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-indigo-500/30 transition-all shadow-sm">
+                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Overall Rating</span>
+                    <Sparkles size={16} className="text-indigo-500 shrink-0" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                    {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
+                  </p>
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                  {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
-                </p>
-              </div>
-            </Tooltip>
-          </div>
+              </Tooltip>
+            </div>
+
+            {/* Mobile Metrics - Ultra Compact pill-like horizontal row */}
+            <div className="grid grid-cols-4 gap-2 sm:hidden w-full">
+              {/* Likes */}
+              <Tooltip content="Total likes received" theme={theme} position="top">
+                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-likes-mobile">
+                  <Heart size={14} className="text-[#C90023] fill-[#C90023]/20 shrink-0" />
+                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
+                    {metrics?.rightSwipes || 0}
+                  </span>
+                </div>
+              </Tooltip>
+              
+              {/* Dislikes */}
+              <Tooltip content="Total dislikes received" theme={theme} position="top">
+                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-dislikes-mobile">
+                  <X size={14} className="text-neutral-400 shrink-0" />
+                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
+                    {Math.max(0, (metrics?.totalReviews || 0) - (metrics?.rightSwipes || 0))}
+                  </span>
+                </div>
+              </Tooltip>
+
+              {/* Saves */}
+              <Tooltip content="Times bookmarked" theme={theme} position="top">
+                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-saves-mobile">
+                  <Bookmark size={14} className="text-amber-500 shrink-0" />
+                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
+                    {metrics?.saves || 0}
+                  </span>
+                </div>
+              </Tooltip>
+
+              {/* Rating */}
+              <Tooltip content="Overall positive rating" theme={theme} position="top">
+                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-rating-mobile">
+                  <Sparkles size={14} className="text-indigo-500 shrink-0" />
+                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
+                    {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
+                  </span>
+                </div>
+              </Tooltip>
+            </div>
+          </>
         )}
       </div>
 
       {/* SECTION 2: Curation Preferences */}
       <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">
         <div className="mb-6">
-          <span className="text-[10px] font-mono uppercase text-accent tracking-widest font-bold">Aesthetic Intel</span>
-          <h2 className="text-xl sm:text-2xl font-bold font-space text-[#171717] dark:text-white tracking-tight mt-1">
+          <h2 className="text-lg font-bold font-space text-[#171717] dark:text-white tracking-tight">
             Curation Preferences
           </h2>
-          <p className="text-sm text-[#555555] dark:text-[#D7D7D7] mt-1.5 leading-relaxed max-w-2xl">
-            These visual vectors index custom content inside your loop stream.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
