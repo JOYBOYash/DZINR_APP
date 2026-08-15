@@ -607,23 +607,23 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   return (
     <div className="w-full max-w-[1400px] mx-auto space-y-8 animate-fade-in text-left pb-24 px-4 sm:px-6 pt-4 sm:pt-6 md:pt-8">
       {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-[#ECECEC] dark:border-white/10 pb-0.5">
+      <div className="flex items-center gap-2 pb-0.5">
         <button
           onClick={() => setActiveTab("drafts")}
-          className={`pb-3.5 px-1 text-sm font-space font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
+          className={`py-2 px-4 rounded-full text-xs font-space font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === "drafts" 
-              ? "border-accent text-accent dark:border-white dark:text-white" 
-              : "border-transparent text-[#888888] hover:text-[#555555]"
+              ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm" 
+              : "bg-neutral-100 text-[#888888] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
           }`}
         >
           Drafts ({drafts.length})
         </button>
         <button
           onClick={() => setActiveTab("published")}
-          className={`pb-3.5 px-1 text-sm font-space font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
+          className={`py-2 px-4 rounded-full text-xs font-space font-bold uppercase tracking-wider transition-all cursor-pointer ${
             activeTab === "published" 
-              ? "border-accent text-accent dark:border-white dark:text-white" 
-              : "border-transparent text-[#888888] hover:text-[#555555]"
+              ? "bg-[#171717] text-white dark:bg-white dark:text-black shadow-sm" 
+              : "bg-neutral-100 text-[#888888] hover:bg-neutral-200 dark:bg-white/5 dark:text-[#A9A9A9] dark:hover:bg-white/10"
           }`}
         >
           Published ({publishedDesigns.length})
@@ -683,10 +683,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             {/* Elegant visual creation card preceding other drafts */}
             <Card
               onClick={() => onCreateNew?.()}
-              className="overflow-hidden border-2 border-dashed border-[#ECECEC]/80 dark:border-white/10 hover:border-accent dark:hover:border-accent hover:shadow-[0_8px_24px_rgba(201,0,35,0.08)] bg-neutral-50/40 dark:bg-[#1E1E1E]/10 flex flex-col items-center justify-center p-6 text-center transition-all cursor-pointer group min-h-[340px] h-full"
+              className="overflow-hidden bg-[#F7F7F8] dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 hover:shadow-[0_8px_24px_rgba(201,0,35,0.08)] flex flex-col items-center justify-center p-6 text-center transition-all cursor-pointer group min-h-[340px] h-full rounded-[24px] border-none"
             >
               <div className="flex flex-col items-center justify-center space-y-4 my-auto">
-                <div className="w-16 h-16 rounded-full bg-accent/5 dark:bg-white/5 flex items-center justify-center border border-accent/15 dark:border-white/15 group-hover:scale-110 group-hover:bg-accent group-hover:border-accent transition-all duration-300">
+                <div className="w-16 h-16 rounded-full bg-accent/5 dark:bg-white/5 flex items-center justify-center group-hover:scale-110 group-hover:bg-accent transition-all duration-300">
                   <Plus className="text-accent dark:text-white group-hover:text-white transition-colors" size={28} strokeWidth={2.5} />
                 </div>
                 <div className="space-y-1.5">
@@ -794,7 +794,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
         </div>
       ) : publishedDesigns.length === 0 ? (
-        <div className="py-24 text-center flex flex-col items-center justify-center gap-4 bg-[#F7F7F8] dark:bg-surface-dark/40 rounded-[24px] border border-[#ECECEC] dark:border-white/5">
+        <div className="py-24 text-center flex flex-col items-center justify-center gap-4 bg-[#F7F7F8] dark:bg-surface-dark/40 rounded-[24px] border-none">
           <img 
             src={theme === 'dark' ? '/no-data-found-d.svg' : '/no-data-found-l.svg'} 
             alt="No published designs found" 

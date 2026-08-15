@@ -164,9 +164,21 @@ export default function App() {
   }, [currentPage, lastBackPress]);
 
   useEffect(() => {
+    const handleCustomNav = (e: Event) => {
+      const page = (e as CustomEvent).detail;
+      if (page) {
+        setCurrentPage(page);
+      }
+    };
+    window.addEventListener("dzinr_navigate", handleCustomNav);
+    
     if (window.history.state?.page !== currentPage) {
       window.history.pushState({ page: currentPage }, "");
     }
+    
+    return () => {
+      window.removeEventListener("dzinr_navigate", handleCustomNav);
+    };
   }, [currentPage]);
 
   // Splash Screen Timeout (lasting 6.5 seconds with animation)

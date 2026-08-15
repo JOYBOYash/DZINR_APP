@@ -23,6 +23,7 @@ interface AuthWrapperProps {
 
 const getFriendlyAuthError = (err: any): string => {
   const code = err?.code || err?.message || '';
+  if (code.includes('iframe-sandbox-restricted')) return "Google Sign-In is restricted inside the preview frame sandbox. Please click 'Open in New Tab' on top to log in with Google, or sign up with Email & Password below!";
   if (code.includes('auth/email-already-in-use')) return "This email address is already registered with another profile.";
   if (code.includes('auth/invalid-email')) return "The email address format is invalid. Please check and try again.";
   if (code.includes('auth/operation-not-allowed')) return "Email & Password login is not enabled in Firebase Authentication.";

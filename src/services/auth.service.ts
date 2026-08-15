@@ -57,7 +57,16 @@ export const authService = {
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
         throw err; // Re-throw so the UI can show the retry popup
       }
-      console.warn('Google Popup blocked or failed. Attempting Google Redirect fallback...', err);
+      console.warn('Google Popup blocked or failed. Checking context...', err);
+      
+      // If we are in an iframe, redirecting will cause a blank screen due to security headers!
+      const isInIframe = window.self !== window.top;
+      if (isInIframe) {
+        const error = new Error("Google Sign-In is restricted inside the preview frame sandbox. Please click 'Open in New Tab' on top to log in with Google, or sign up with Email & Password!");
+        (error as any).code = 'auth/iframe-sandbox-restricted';
+        throw error;
+      }
+
       try {
         await signInWithRedirect(auth, googleProvider);
       } catch (redirectErr: any) {

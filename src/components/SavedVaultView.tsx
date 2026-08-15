@@ -715,7 +715,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
           <span>Synchronizing inspiration vault...</span>
         </div>
       ) : verifiedDesigns.length === 0 ? (
-        <div className="py-12 border border-dashed border-[#ECECEC] dark:border-white/10 rounded-[32px] bg-neutral-50/50 dark:bg-white/1">
+        <div className="py-12 rounded-[32px] bg-neutral-50/30 dark:bg-white/2">
           <EmptyState
             id="saved-vault-empty"
             theme={theme}
@@ -729,7 +729,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
       ) : (
         <div className="w-full flex flex-col">
           {/* Aesthetic Controls & Mode Switcher */}
-          <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-neutral-100 dark:border-white/5 pb-6">
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6">
             {/* Horizontal Filter Row */}
             {viewMode !== "moodboards" ? (
               <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -859,30 +859,51 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.9 }}
                               transition={{ duration: 0.2 }}
-                              className="group relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] cursor-pointer shadow-md hover:shadow-xl transition-all duration-300"
+                              className="group relative flex flex-col cursor-pointer"
                               onClick={() => setLightboxDesign(design)}
                             >
-                              <img
-                                src={design.imageUrl}
-                                alt={design.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                referrerPolicy="no-referrer"
-                              />
-                              
-                              {/* Gradient shade overlay */}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
-                              
-                              {/* Overlay content */}
-                              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-4 text-left z-10 pointer-events-none">
-                                <div className="flex-1 min-w-0 pr-2">
-                                  <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate block">
-                                    {design.category || "Design"}
-                                  </span>
-                                  <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight block">
-                                    {design.title}
-                                  </h4>
+                              <div className="relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] shadow-md hover:shadow-xl transition-all duration-300">
+                                <img
+                                  src={design.imageUrl}
+                                  alt={design.title}
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  referrerPolicy="no-referrer"
+                                />
+                                
+                                {/* Direct Save to Moodboard button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectionDesign(design);
+                                  }}
+                                  className="absolute top-3 right-12 p-2.5 bg-black/60 hover:bg-[#C90023] text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                                  title="Save to Moodboard"
+                                >
+                                  <FolderPlus size={13} />
+                                </button>
+
+                                {/* Direct Unsave button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDesignToDelete(design);
+                                  }}
+                                  disabled={isUnsavingId === design.id}
+                                  className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                                  title="Remove from saved archive"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+
+                              {/* Info Box sits cleanly below the design image */}
+                              <div className="mt-2.5 px-1 text-left">
+                                <h4 className="text-xs font-bold text-[#171717] dark:text-white font-space tracking-tight truncate leading-tight block">
+                                  {design.title}
+                                </h4>
+                                <div className="flex items-center justify-between mt-1">
                                   <span 
-                                    className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5 hover:text-accent hover:underline transition-colors pointer-events-auto cursor-pointer"
+                                    className="text-[10px] font-mono text-neutral-500 dark:text-[#A9A9A9] truncate max-w-[70%] hover:text-accent hover:underline transition-colors pointer-events-auto cursor-pointer"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setActiveDesignerId(design.userId);
@@ -890,49 +911,12 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                                   >
                                     @{creatorUsername}
                                   </span>
-                                  {design.publishedAt && (
-                                    <span className="text-[9px] font-mono text-neutral-400 block truncate mt-1 tracking-wider uppercase">
-                                      {new Date(design.publishedAt).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Beautiful modern pill-shaped like indicator */}
-                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 hover:bg-black/70 border border-white/10 text-white backdrop-blur-md font-space font-semibold text-[11px] select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
-                                  <Heart 
-                                    size={12} 
-                                    className="text-rose-500 fill-rose-500 shrink-0" 
-                                  />
-                                  <span>
-                                    {formatLikesCount(design.stats?.likes || 0)}
-                                  </span>
+                                  <div className="flex items-center gap-1 text-[#555555] dark:text-[#A9A9A9] font-space text-[10px] font-medium shrink-0">
+                                    <Heart size={10} className="text-rose-500 fill-rose-500 shrink-0" />
+                                    <span>{formatLikesCount(design.stats?.likes || 0)}</span>
+                                  </div>
                                 </div>
                               </div>
-
-                              {/* Direct Save to Moodboard button */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectionDesign(design);
-                                }}
-                                className="absolute top-3 right-12 p-2.5 bg-black/60 hover:bg-[#C90023] text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
-                                title="Save to Moodboard"
-                              >
-                                <FolderPlus size={13} />
-                              </button>
-
-                              {/* Direct Unsave button */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDesignToDelete(design);
-                                }}
-                                disabled={isUnsavingId === design.id}
-                                className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
-                                title="Remove from saved archive"
-                              >
-                                <Trash2 size={13} />
-                              </button>
                             </motion.div>
                           );
                         })}
@@ -967,30 +951,51 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                          className="group relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] cursor-pointer shadow-md hover:shadow-xl transition-all duration-300"
+                          className="group relative flex flex-col cursor-pointer"
                           onClick={() => setLightboxDesign(design)}
                         >
-                          <img
-                            src={design.imageUrl}
-                            alt={design.title}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            referrerPolicy="no-referrer"
-                          />
-                          
-                          {/* Gradient shade overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300" />
-                          
-                          {/* Overlay content */}
-                          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-4 text-left z-10 pointer-events-none">
-                            <div className="flex-1 min-w-0 pr-2">
-                              <span className="text-[10px] font-mono text-neutral-300 uppercase tracking-widest truncate block">
-                                {design.category || "Design"}
-                              </span>
-                              <h4 className="text-sm font-bold text-white font-space tracking-tight mt-0.5 truncate leading-tight block">
-                                {design.title}
-                              </h4>
+                          <div className="relative rounded-[20px] overflow-hidden border border-neutral-200 dark:border-white/10 bg-[#171717] aspect-[3/4] shadow-md hover:shadow-xl transition-all duration-300">
+                            <img
+                              src={design.imageUrl}
+                              alt={design.title}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              referrerPolicy="no-referrer"
+                            />
+                            
+                            {/* Direct Save to Moodboard button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectionDesign(design);
+                              }}
+                              className="absolute top-3 right-12 p-2.5 bg-black/60 hover:bg-[#C90023] text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                              title="Save to Moodboard"
+                            >
+                              <FolderPlus size={13} />
+                            </button>
+
+                            {/* Direct Unsave button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDesignToDelete(design);
+                              }}
+                              disabled={isUnsavingId === design.id}
+                              className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
+                              title="Remove from saved archive"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+
+                          {/* Info Box sits cleanly below the design image */}
+                          <div className="mt-2.5 px-1 text-left">
+                            <h4 className="text-xs font-bold text-[#171717] dark:text-white font-space tracking-tight truncate leading-tight block">
+                              {design.title}
+                            </h4>
+                            <div className="flex items-center justify-between mt-1">
                               <span 
-                                className="text-[10px] font-mono text-neutral-400 block truncate mt-0.5 hover:text-accent hover:underline transition-colors pointer-events-auto cursor-pointer"
+                                className="text-[10px] font-mono text-neutral-500 dark:text-[#A9A9A9] truncate max-w-[70%] hover:text-accent hover:underline transition-colors pointer-events-auto cursor-pointer"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setActiveDesignerId(design.userId);
@@ -998,49 +1003,12 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                               >
                                 @{creatorUsername}
                               </span>
-                              {design.publishedAt && (
-                                <span className="text-[9px] font-mono text-neutral-400 block truncate mt-1 tracking-wider uppercase">
-                                  {new Date(design.publishedAt).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Beautiful modern pill-shaped like indicator */}
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 hover:bg-black/70 border border-white/10 text-white backdrop-blur-md font-space font-semibold text-[11px] select-none hover:scale-105 active:scale-95 transition-all duration-200 pointer-events-auto" title={`${design.stats?.likes || 0} likes`}>
-                              <Heart 
-                                size={12} 
-                                className="text-rose-500 fill-rose-500 shrink-0" 
-                              />
-                              <span>
-                                {formatLikesCount(design.stats?.likes || 0)}
-                              </span>
+                              <div className="flex items-center gap-1 text-[#555555] dark:text-[#A9A9A9] font-space text-[10px] font-medium shrink-0">
+                                <Heart size={10} className="text-rose-500 fill-rose-500 shrink-0" />
+                                <span>{formatLikesCount(design.stats?.likes || 0)}</span>
+                              </div>
                             </div>
                           </div>
-
-                          {/* Direct Save to Moodboard button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectionDesign(design);
-                            }}
-                            className="absolute top-3 right-12 p-2.5 bg-black/60 hover:bg-[#C90023] text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
-                            title="Save to Moodboard"
-                          >
-                            <FolderPlus size={13} />
-                          </button>
-
-                          {/* Direct Unsave button */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDesignToDelete(design);
-                            }}
-                            disabled={isUnsavingId === design.id}
-                            className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer backdrop-blur-sm z-20 border border-white/10"
-                            title="Remove from saved archive"
-                          >
-                            <Trash2 size={13} />
-                          </button>
                         </motion.div>
                       );
                     })}
@@ -1073,11 +1041,11 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                 {activeMoodboard ? (
                   <div className="space-y-6">
                     {/* Active Moodboard Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 dark:border-white/5 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setActiveMoodboard(null)}
-                          className="p-2 rounded-full border border-neutral-200 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-white/5 text-neutral-500 dark:text-neutral-400 cursor-pointer"
+                          className="p-2 rounded-full hover:bg-neutral-50 dark:hover:bg-white/5 text-neutral-500 dark:text-neutral-400 cursor-pointer"
                         >
                           <ChevronLeft size={16} />
                         </button>
@@ -1138,7 +1106,7 @@ export const SavedVaultView: React.FC<SavedVaultViewProps> = ({
                     </div>
 
                     {/* Active Moodboard Description */}
-                    <div className="bg-neutral-50 dark:bg-white/5 rounded-2xl p-4 border border-neutral-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="bg-neutral-50 dark:bg-white/5 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1">
                         <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#C90023]">
                           Board Description

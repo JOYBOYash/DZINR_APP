@@ -544,7 +544,7 @@ const DiscoveryCard = React.memo(({
 
         {/* Aesthetic style tags of design */}
         {card.styles && card.styles.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-white/10">
+          <div className="flex flex-wrap gap-1.5 pt-1.5">
             {card.styles.slice(0, 3).map((sty) => (
               <span
                 key={sty}
@@ -582,6 +582,10 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
   const [showReadyToast, setShowReadyToast] = useState<boolean>(false);
   const [isStackHovered, setIsStackHovered] = useState<boolean>(false);
   const [activeDesignerId, setActiveDesignerId] = useState<string | null>(null);
+
+  // Session swipe gamification states
+  const [sessionSwipeCount, setSessionSwipeCount] = useState<number>(0);
+  const [showCongratsOverlay, setShowCongratsOverlay] = useState<boolean>(false);
 
   useEffect(() => {
     const completed = localStorage.getItem("dzinr_onboarding_completed");
@@ -1059,6 +1063,14 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
         navigator.vibrate(10); // single subtle tap for Skip
       }
     }
+
+    setSessionSwipeCount((prev) => {
+      const nextCount = prev + 1;
+      if (nextCount % 10 === 0) {
+        setShowCongratsOverlay(true);
+      }
+      return nextCount;
+    });
 
     setDesigns((prev) => prev.filter((d) => d.id !== designId));
 
@@ -1616,6 +1628,93 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
             >
               Start
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 10 Swipes Celebration Congrats Overlay */}
+      <AnimatePresence>
+        {showCongratsOverlay && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 350 }}
+              className={`w-full max-w-md p-8 rounded-[28px] text-center border shadow-2xl relative overflow-hidden ${
+                theme === "dark"
+                  ? "bg-[#161617] border-white/10 text-white shadow-black/80"
+                  : "bg-white border-neutral-200 text-[#171717]"
+              }`}
+            >
+              {/* Particle Sparkles in corners */}
+              <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20 dark:opacity-40">
+                <div className="absolute top-6 left-6 animate-pulse">
+                  <SparklesIcon className="w-6 h-6 text-amber-400" />
+                </div>
+                <div className="absolute bottom-6 right-6 animate-pulse delay-500">
+                  <SparklesIcon className="w-8 h-8 text-amber-500" />
+                </div>
+              </div>
+
+              {/* Glowing Medal / Icon Area */}
+              <div className="mx-auto w-20 h-20 rounded-full bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center text-amber-500 border border-amber-500/30 shadow-lg shadow-amber-500/10 mb-6 relative">
+                <TrophyIcon className="w-10 h-10 animate-bounce" />
+                <div className="absolute -inset-1 bg-amber-500/10 rounded-full blur-sm animate-pulse pointer-events-none" />
+              </div>
+
+              {/* Heading */}
+              <h3 className="text-2xl font-bold font-space tracking-tight mb-3">
+                Curator Level Up! 🎉
+              </h3>
+
+              {/* Swipe Counter Visual */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-mono font-bold tracking-wider mb-5">
+                <HeartIcon className="w-3.5 h-3.5 fill-amber-500" />
+                <span>10 SWIPES COMPLETED</span>
+              </div>
+
+              {/* Message */}
+              <p className={`text-sm font-sans leading-relaxed mb-8 ${
+                theme === "dark" ? "text-neutral-400" : "text-neutral-600"
+              }`}>
+                Incredible curating! You've successfully swiped and reviewed 10 designs. This has aligned Dzinr's visual recommendation engine with your taste, and is unlocking your Profile medals!
+              </p>
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-3">
+                <Button
+                  id="congrats-keep-curating"
+                  onClick={() => setShowCongratsOverlay(false)}
+                  className="w-full py-3.5 px-6 font-semibold flex items-center justify-center gap-2 rounded-2xl bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20"
+                >
+                  <SparklesIcon className="w-4 h-4" />
+                  <span>Keep Curating</span>
+                </Button>
+                
+                <button
+                  id="congrats-view-medals"
+                  onClick={() => {
+                    setShowCongratsOverlay(false);
+                    // Route to profile page
+                    const event = new CustomEvent("dzinr_navigate", { detail: "profile" });
+                    window.dispatchEvent(event);
+                  }}
+                  className={`w-full py-3 text-xs font-semibold tracking-wide uppercase transition-colors rounded-2xl border ${
+                    theme === "dark"
+                      ? "border-white/10 hover:bg-white/5 text-neutral-300 hover:text-white"
+                      : "border-neutral-200 hover:bg-neutral-50 text-neutral-600 hover:text-[#171717]"
+                  }`}
+                >
+                  View My Medals
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

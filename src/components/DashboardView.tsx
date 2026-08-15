@@ -626,7 +626,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {user.bio ? (
-        <p className="text-sm sm:text-base text-[#555555] dark:text-[#D7D7D7] leading-relaxed italic border-l-2 border-accent/20 pl-4 py-1 max-w-3xl">
+        <p className="text-sm sm:text-base text-[#555555] dark:text-[#D7D7D7] leading-relaxed italic pl-0 py-1 max-w-3xl">
           "{user.bio}"
         </p>
       ) : (
@@ -637,7 +637,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Completeness bar helper */}
       {showCompletenessBox && (
-        <div className="p-5 rounded-[24px] bg-[#F7F7F8] dark:bg-[#1E1E1E]/40 border border-[#ECECEC] dark:border-white/5 space-y-4 relative w-full max-w-4xl">
+        <div className="p-5 rounded-[24px] bg-[#F7F7F8] dark:bg-[#1E1E1E]/40 space-y-4 relative w-full max-w-4xl">
           <button
             onClick={() => setShowCompletenessBox(false)}
             className="absolute top-4 right-4 text-[#888888] dark:text-[#A9A9A9] hover:text-accent cursor-pointer"
@@ -737,7 +737,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {/* Stat 1: Total Likes */}
                   <Tooltip content="Total likes received across your published designs" theme={theme} position="top">
-                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-neutral-200/50 dark:border-white/5 hover:border-accent/20 transition-all shadow-sm">
+                    <div className="p-5 rounded-2xl bg-[#F7F7F8] dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 transition-all shadow-sm">
                       <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
                         <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Likes</span>
                         <HeartIcon className="w-4 h-4 text-[#C90023] fill-[#C90023]/20 shrink-0" />
@@ -750,7 +750,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   {/* Stat 2: Dislikes */}
                   <Tooltip content="Total skips or pass ratings received" theme={theme} position="top">
-                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-neutral-200/50 dark:border-white/5 hover:border-neutral-500/30 transition-all shadow-sm">
+                    <div className="p-5 rounded-2xl bg-[#F7F7F8] dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 transition-all shadow-sm">
                       <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
                         <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Dislikes</span>
                         <XMarkIcon className="w-4 h-4 text-neutral-400 shrink-0" />
@@ -763,7 +763,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   {/* Stat 3: Saves */}
                   <Tooltip content="Times your designs were bookmarked to user vaults" theme={theme} position="top">
-                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-[#ECECEC] dark:border-white/5 hover:border-amber-500/30 transition-all shadow-sm">
+                    <div className="p-5 rounded-2xl bg-[#F7F7F8] dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 transition-all shadow-sm">
                       <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
                         <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Saves</span>
                         <BookmarkIcon className="w-4 h-4 text-amber-500 shrink-0" />
@@ -776,7 +776,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   {/* Stat 4: Performance Score */}
                   <Tooltip content="Overall positive approval score" theme={theme} position="top">
-                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-neutral-200/50 dark:border-white/5 hover:border-indigo-500/30 transition-all shadow-sm">
+                    <div className="p-5 rounded-2xl bg-[#F7F7F8] dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 transition-all shadow-sm">
                       <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
                         <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Overall Rating</span>
                         <ArrowTrendingUpIcon className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -906,13 +906,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Account Actions */}
-      <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#ECECEC] dark:via-white/10 to-transparent my-10 border-none" />
+      <div className="my-10" />
       <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4">
         <Button
           id="dashboard-signout"
           variant="secondary"
           onClick={onLogout}
-          className="w-full sm:w-auto py-3 px-8 text-[#171717] dark:text-white border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:bg-[#ECECEC] dark:hover:bg-white/10"
+          className="w-full sm:w-auto py-3 px-8 text-[#171717] dark:text-white border-none bg-[#F7F7F8] dark:bg-white/5 hover:bg-[#ECECEC] dark:hover:bg-white/10"
         >
           <ArrowLeftOnRectangleIcon className="w-4 h-4 mr-2 inline" />
           <span className="font-semibold text-sm">Sign Out</span>
