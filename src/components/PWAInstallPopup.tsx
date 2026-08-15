@@ -1,6 +1,6 @@
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Smartphone, X } from "lucide-react";
+import { DevicePhoneMobileIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "./Button";
 
 interface PWAInstallPopupProps {
@@ -52,13 +52,13 @@ export const PWAInstallPopup: React.FC<PWAInstallPopupProps> = ({
               onClick={onDismiss}
               className="absolute top-4 right-4 p-1.5 rounded-full border border-[#ECECEC] dark:border-white/10 text-[#888888] hover:text-accent dark:hover:text-white bg-white/5 cursor-pointer"
             >
-              <X size={14} />
+              <XMarkIcon className="w-4 h-4" />
             </button>
 
             <div className="flex flex-col items-center text-center gap-5">
               {/* Visual Icon Badge */}
               <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent mb-1">
-                <Smartphone size={22} className="animate-pulse" />
+                <DevicePhoneMobileIcon className="w-[22px] h-[22px] animate-pulse" />
               </div>
 
               <div className="space-y-1.5">

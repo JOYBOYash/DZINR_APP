@@ -2,31 +2,42 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Smartphone,
-  CheckCircle2,
-  Check,
-  Edit3,
-  Layers,
-  Globe,
-  Trash2,
-  Loader2,
-  Heart,
-  Briefcase,
-  ChevronRight,
-  X,
-  LogOut,
-  Sun,
-  Moon,
-  AlertTriangle,
-  Mail,
-  Bookmark,
-  TrendingUp,
-  Sparkles,
-  Award,
-  ArrowLeft,
-  Smile,
-  Share2,
-} from "lucide-react";
+  DevicePhoneMobileIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  PencilSquareIcon,
+  Square2StackIcon,
+  GlobeAltIcon,
+  TrashIcon,
+  ArrowPathIcon,
+  HeartIcon,
+  BriefcaseIcon,
+  ChevronRightIcon,
+  XMarkIcon,
+  ArrowLeftOnRectangleIcon,
+  SunIcon,
+  MoonIcon,
+  ExclamationTriangleIcon,
+  EnvelopeIcon,
+  BookmarkIcon,
+  ArrowTrendingUpIcon,
+  ChartBarIcon,
+  TrophyIcon,
+  ArrowLeftIcon,
+  FaceSmileIcon,
+  ShareIcon,
+  ChatBubbleLeftRightIcon,
+  AdjustmentsHorizontalIcon,
+  CursorArrowRaysIcon,
+  UsersIcon,
+  LockClosedIcon,
+  PhotoIcon,
+  ChatBubbleBottomCenterTextIcon,
+  SparklesIcon,
+  ShieldCheckIcon,
+  BoltIcon,
+  StarIcon,
+} from "@heroicons/react/24/outline";
 import { UserProfile } from "../types";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
@@ -41,6 +52,158 @@ import { auth } from "../services/firebase";
 import { getApiUrl } from "../utils/api";
 import { Modal } from "./Modal";
 import { Tooltip } from "./Tooltip";
+
+const SolidMedalIcon = ({ className, fill }: { className?: string; fill: string }) => (
+  <svg 
+    className={className} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Ribbon paths behind */}
+    <path 
+      d="M7.5 11.5L4.5 21L12 18L19.5 21L16.5 11.5" 
+      fill={fill} 
+      fillOpacity="0.85" 
+    />
+    {/* Outer circle of the medal */}
+    <circle cx="12" cy="8.5" r="6.5" fill={fill} />
+    {/* Inner decorative circle */}
+    <circle cx="12" cy="8.5" r="4.5" fill="none" stroke="rgba(255, 255, 255, 0.4)" strokeWidth="1" />
+    {/* Perfectly centered inner star */}
+    <path 
+      d="M12 6.2l.7 1.5 1.6.2-1.2 1.1.3 1.6-1.4-.7-1.4.7.3-1.6-1.2-1.1 1.6-.2z" 
+      fill="white" 
+    />
+  </svg>
+);
+
+const BadgeCard: React.FC<{ item: any; key?: any }> = ({
+  item,
+}) => {
+  const { badge, currentValue, highestUnlockedTier, nextTier } = item;
+
+  const level = highestUnlockedTier?.level || 0;
+  const isUnlocked = level > 0;
+
+  const tierConfigs: Record<number, { name: string; color: string; border: string; bg: string; ring: string; badgeBg: string }> = {
+    0: { name: "Locked", color: "text-neutral-400 dark:text-neutral-500", border: "border-neutral-200 dark:border-white/5", bg: "bg-neutral-50 dark:bg-white/5", ring: "stroke-neutral-200 dark:stroke-white/10", badgeBg: "bg-neutral-100 dark:bg-white/5" },
+    1: { name: "Bronze", color: "text-[#CD7F32]", border: "border-[#CD7F32]/20", bg: "bg-neutral-100 dark:bg-neutral-800", ring: "stroke-[#CD7F32]", badgeBg: "bg-neutral-100 dark:bg-neutral-800" },
+    2: { name: "Silver", color: "text-[#8A95A5]", border: "border-[#8A95A5]/20", bg: "bg-neutral-100 dark:bg-neutral-800", ring: "stroke-[#8A95A5]", badgeBg: "bg-neutral-100 dark:bg-neutral-800" },
+    3: { name: "Gold", color: "text-[#D4AF37]", border: "border-[#D4AF37]/20", bg: "bg-neutral-100 dark:bg-neutral-800", ring: "stroke-[#D4AF37]", badgeBg: "bg-neutral-100 dark:bg-neutral-800" },
+    4: { name: "Platinum", color: "text-[#4E9FDF]", border: "border-[#4E9FDF]/20", bg: "bg-neutral-100 dark:bg-neutral-800", ring: "stroke-[#4E9FDF]", badgeBg: "bg-neutral-100 dark:bg-neutral-800" },
+  };
+
+  const currentConfig = tierConfigs[level];
+
+  const renderIcon = (sizeClass = "w-9 h-9") => {
+    const iconProps = { className: `${sizeClass} ${isUnlocked ? currentConfig.color : "text-neutral-400 dark:text-neutral-500"}` };
+    switch (badge.icon) {
+      case "Layers": return <PhotoIcon {...iconProps} />;
+      case "MessageSquare": return <ChatBubbleBottomCenterTextIcon {...iconProps} />;
+      case "Sparkles": return <SparklesIcon {...iconProps} />;
+      case "Bookmark": return <BookmarkIcon {...iconProps} />;
+      default: return <UsersIcon {...iconProps} />;
+    }
+  };
+
+  const nextThreshold = nextTier ? nextTier.thresholdValue : (highestUnlockedTier ? highestUnlockedTier.thresholdValue : 1);
+  const prevThreshold = level > 1 ? badge.tiers[level - 2].thresholdValue : 0;
+
+  const range = nextThreshold - prevThreshold;
+  const progressInRange = currentValue - prevThreshold;
+  const percentage = nextTier
+    ? Math.min(100, Math.max(0, Math.round((progressInRange / (range || 1)) * 100)))
+    : 100;
+
+  const radius = 52;
+  const strokeWidth = 6;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div
+      className="relative p-6 transition-all duration-300 flex flex-col items-center text-center group bg-transparent border-none hover:scale-[1.03]"
+    >
+      {/* Central Crest Container with Concentric Radial Rings - Larger Scale */}
+      <div className="relative w-32 h-32 flex items-center justify-center mb-5 select-none">
+        <svg className="absolute inset-0 w-full h-full -rotate-90">
+          <circle
+            cx="64"
+            cy="64"
+            r={radius}
+            fill="transparent"
+            className="stroke-neutral-200/50 dark:stroke-white/5"
+            strokeWidth={strokeWidth}
+          />
+          <circle
+            cx="64"
+            cy="64"
+            r={radius}
+            fill="transparent"
+            className="transition-all duration-700 ease-out"
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            stroke={level > 0 ? (level === 1 ? "#CD7F32" : level === 2 ? "#8A95A5" : level === 3 ? "#D4AF37" : "#4E9FDF") : "#D4D4D8"}
+          />
+        </svg>
+
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center border border-neutral-200/50 dark:border-white/5 transition-all duration-300 group-hover:scale-105 ${currentConfig.badgeBg}`}>
+          {renderIcon()}
+        </div>
+
+        {!isUnlocked && (
+          <div className="absolute bottom-2 right-2 bg-neutral-200 dark:bg-neutral-800 p-1.5 rounded-full border border-white dark:border-neutral-900 shadow-sm">
+            <LockClosedIcon className="w-3.5 h-3.5 text-neutral-500" />
+          </div>
+        )}
+      </div>
+
+      {/* Badge Name & Description */}
+      <h4 className="text-sm font-space font-bold text-[#171717] dark:text-white tracking-tight">
+        {badge.name}
+      </h4>
+
+      <span className={`text-[9px] font-space font-bold uppercase tracking-wider mt-2 px-2.5 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 ${currentConfig.color}`}>
+        {level > 0 ? `${currentConfig.name} Tier` : "Locked"}
+      </span>
+
+      {/* Modern, Highly Visual Tier Milestone Nodes with Icons */}
+      <div className="flex items-center justify-center gap-2 mt-4 w-full">
+        {[1, 2, 3, 4].map((tierLvl) => {
+          const isLvlUnlocked = level >= tierLvl;
+          const solidColors: Record<number, string> = {
+            1: "#CD7F32", // Solid Bronze
+            2: "#8A95A5", // Solid Silver
+            3: "#D4AF37", // Solid Gold
+            4: "#4E9FDF", // Solid Platinum
+          };
+          return (
+            <div
+              key={tierLvl}
+              className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-300 ${
+                isLvlUnlocked
+                  ? `bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 scale-105 ring-2 ring-transparent group-hover:ring-neutral-200 dark:group-hover:ring-white/10`
+                  : "bg-neutral-50 dark:bg-neutral-900/40 border-neutral-200 dark:border-white/5 opacity-40"
+              }`}
+            >
+              <SolidMedalIcon 
+                fill={isLvlUnlocked ? solidColors[tierLvl] : "#52525B"} 
+                className="w-4.5 h-4.5" 
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[11px] font-space text-neutral-500 dark:text-[#A9A9A9] mt-3 font-semibold">
+        {currentValue} / {nextThreshold} Completed
+      </p>
+    </div>
+  );
+};
 
 interface DashboardViewProps {
   user: UserProfile;
@@ -88,6 +251,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [metrics, setMetrics] = useState<any>(null);
   const [isMetricsLoading, setIsMetricsLoading] = useState(true);
   const [chartTab, setChartTab] = useState<"swipes" | "rating">("swipes");
+  const [dashboardTab, setDashboardTab] = useState<"insights" | "achievements" | "preferences">("insights");
+
+  const { data: badgesProgress, isLoading: isBadgesLoading } = useQuery({
+    queryKey: ["userBadges", user?.id],
+    queryFn: async () => {
+      const { badgeService } = await import("../services/badge.service");
+      return await badgeService.calculateUserBadges(user.id, user);
+    },
+    enabled: !!user?.id,
+  });
 
   useEffect(() => {
     if (!user?.id) return;
@@ -317,7 +490,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               @{user.username}
               {user.emailVerified && (
                 <span className="inline-flex items-center justify-center bg-accent text-white rounded-full w-5 h-5 shrink-0 shadow-md border border-accent/20" title="Verified Curator">
-                  <Check size={11} className="stroke-[3.5]" />
+                  <CheckIcon className="w-3 h-3 stroke-[3.5]" />
                 </span>
               )}
             </h2>
@@ -332,7 +505,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   rel="noopener noreferrer"
                   className="text-xs font-mono text-accent hover:underline flex items-center gap-1 break-all"
                 >
-                  <Globe size={12} />
+                  <GlobeAltIcon className="w-3.5 h-3.5" />
                   <span>{user.portfolioUrl}</span>
                 </a>
               )}
@@ -352,7 +525,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 variant="primary"
                 className="py-2.5 h-auto text-xs font-semibold px-5 relative"
               >
-                <Mail size={14} className="mr-1.5" />
+                <EnvelopeIcon className="w-3.5 h-3.5 mr-1.5" />
                 <span>Verify My Status</span>
                 <span className="absolute -top-1 -right-1 flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
@@ -377,7 +550,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             variant="primary"
             className="py-2.5 h-auto text-xs font-semibold px-6 bg-accent text-white"
           >
-            <Share2 size={14} className="mr-1.5" />
+            <ShareIcon className="w-3.5 h-3.5 mr-1.5" />
             <span>Portfolio</span>
           </Button>
           <Button
@@ -386,7 +559,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             variant="secondary"
             className="py-2.5 h-auto text-xs font-semibold px-6"
           >
-            <Edit3 size={14} className="mr-1.5" />
+            <PencilSquareIcon className="w-3.5 h-3.5 mr-1.5" />
             <span>Edit Profile</span>
           </Button>
         </div>
@@ -402,7 +575,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 variant="primary"
                 className="flex-1 py-2.5 h-auto text-xs font-semibold px-3 relative"
               >
-                <Mail size={12} className="mr-1" />
+                <EnvelopeIcon className="w-3 h-3 mr-1" />
                 <span className="truncate">Verify Status</span>
               </Button>
               <Button
@@ -426,7 +599,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="w-12 h-12 !px-0 !py-0 flex items-center justify-center bg-accent text-white rounded-xl shadow-sm shrink-0"
               title="Portfolio"
             >
-              <Share2 size={16} />
+              <ShareIcon className="w-4 h-4" />
             </Button>
             
             <Button
@@ -436,7 +609,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="w-12 h-12 !px-0 !py-0 flex items-center justify-center rounded-xl shadow-sm shrink-0"
               title="Edit Profile"
             >
-              <Edit3 size={16} />
+              <PencilSquareIcon className="w-4 h-4" />
             </Button>
 
             <Button
@@ -446,7 +619,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="w-12 h-12 !px-0 !py-0 flex items-center justify-center rounded-xl shadow-sm shrink-0"
               title="Toggle Theme"
             >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === "dark" ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
             </Button>
           </div>
         </div>
@@ -457,7 +630,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           "{user.bio}"
         </p>
       ) : (
-        <p className="text-sm text-accent/80 font-mono tracking-tight leading-relaxed max-w-3xl">
+        <p className="text-sm text-accent/80 font-space uppercase tracking-wider font-semibold leading-relaxed max-w-3xl">
           Profile bio is currently empty
         </p>
       )}
@@ -470,13 +643,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             className="absolute top-4 right-4 text-[#888888] dark:text-[#A9A9A9] hover:text-accent cursor-pointer"
             aria-label="Close completeness panel"
           >
-            <X size={16} />
+            <XMarkIcon className="w-4 h-4" />
           </button>
           <div className="flex justify-between items-center pr-6">
             <span className="text-[11px] font-space font-semibold uppercase tracking-wide text-[#555555] dark:text-[#D7D7D7]">
               Setup Curation Profile
             </span>
-            <span className="text-sm font-mono font-bold text-accent">
+            <span className="text-sm font-space font-bold text-accent">
               {completionPercentage}%
             </span>
           </div>
@@ -489,208 +662,224 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {skippedItems.length > 0 ? (
-            <div className="pt-2 border-t border-divider-light dark:border-divider-dark space-y-1.5">
-              <span className="text-[10px] font-mono text-[#888888] dark:text-[#A9A9A9] uppercase">Remaining steps:</span>
+            <div className="pt-4 space-y-1.5">
+              <span className="text-[10px] font-space font-semibold text-[#888888] dark:text-[#A9A9A9] uppercase tracking-wider">Remaining steps:</span>
               <ul className="space-y-1 text-xs">
                 {skippedItems.map((item, idx) => (
                   <li key={idx} className="text-amber-600 dark:text-amber-500 flex items-center gap-2 font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    <span>{item.name}: {item.label}</span>
+                    <span className="font-sans">{item.name}: {item.label}</span>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            <div className="pt-2 text-sm text-green-600 dark:text-green-500 flex items-center gap-2 border-t border-divider-light dark:border-divider-dark font-medium">
-              <CheckCircle2 size={16} />
-              <span>Profile setups locked and loaded!</span>
+            <div className="pt-4 text-sm text-green-600 dark:text-green-500 flex items-center gap-2 font-medium">
+              <CheckCircleIcon className="w-4 h-4" />
+              <span className="font-sans">Profile setups locked and loaded!</span>
             </div>
           )}
         </div>
       )}
 
-      {/* SECTION: Creator Portfolio Performance Metrics */}
-      <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold font-space text-[#171717] dark:text-white tracking-tight">
-              Design Score Insights
-            </h2>
-          </div>
-        </div>
-
-        {isMetricsLoading ? (
-          <div className="py-8 flex items-center gap-2 text-xs font-mono text-[#888888] dark:text-[#A9A9A9] animate-pulse">
-            <Loader2 className="animate-spin text-accent" size={14} />
-            <span>Computing performance metrics...</span>
-          </div>
-        ) : (
-          <>
-            {/* Desktop Metrics - Bulky Cards */}
-            <div className="hidden sm:grid sm:grid-cols-4 gap-4">
-              {/* Stat 1: Total Likes */}
-              <Tooltip content="Total likes received across your published designs" theme={theme} position="top">
-                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-red-500/30 transition-all shadow-sm">
-                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Likes</span>
-                    <Heart size={16} className="text-[#C90023] fill-[#C90023]/20 shrink-0" />
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                    {metrics?.rightSwipes || 0}
-                  </p>
-                </div>
-              </Tooltip>
-
-              {/* Stat 2: Dislikes */}
-              <Tooltip content="Total skips or pass ratings received" theme={theme} position="top">
-                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-neutral-500/30 transition-all shadow-sm">
-                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Dislikes</span>
-                    <X size={16} className="text-neutral-400 shrink-0" />
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                    {Math.max(0, (metrics?.totalReviews || 0) - (metrics?.rightSwipes || 0))}
-                  </p>
-                </div>
-              </Tooltip>
-
-              {/* Stat 3: Saves */}
-              <Tooltip content="Times your designs were bookmarked to user vaults" theme={theme} position="top">
-                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-amber-500/30 transition-all shadow-sm">
-                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Saves</span>
-                    <Bookmark size={16} className="text-amber-500 shrink-0" />
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                    {metrics?.saves || 0}
-                  </p>
-                </div>
-              </Tooltip>
-
-              {/* Stat 4: Performance Score */}
-              <Tooltip content="Overall positive approval score" theme={theme} position="top">
-                <div className="p-4 rounded-2xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10 hover:border-indigo-500/30 transition-all shadow-sm">
-                  <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
-                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Overall Rating</span>
-                    <Sparkles size={16} className="text-indigo-500 shrink-0" />
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
-                    {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
-                  </p>
-                </div>
-              </Tooltip>
-            </div>
-
-            {/* Mobile Metrics - Ultra Compact pill-like horizontal row */}
-            <div className="grid grid-cols-4 gap-2 sm:hidden w-full">
-              {/* Likes */}
-              <Tooltip content="Total likes received" theme={theme} position="top">
-                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-likes-mobile">
-                  <Heart size={14} className="text-[#C90023] fill-[#C90023]/20 shrink-0" />
-                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
-                    {metrics?.rightSwipes || 0}
-                  </span>
-                </div>
-              </Tooltip>
-              
-              {/* Dislikes */}
-              <Tooltip content="Total dislikes received" theme={theme} position="top">
-                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-dislikes-mobile">
-                  <X size={14} className="text-neutral-400 shrink-0" />
-                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
-                    {Math.max(0, (metrics?.totalReviews || 0) - (metrics?.rightSwipes || 0))}
-                  </span>
-                </div>
-              </Tooltip>
-
-              {/* Saves */}
-              <Tooltip content="Times bookmarked" theme={theme} position="top">
-                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-saves-mobile">
-                  <Bookmark size={14} className="text-amber-500 shrink-0" />
-                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
-                    {metrics?.saves || 0}
-                  </span>
-                </div>
-              </Tooltip>
-
-              {/* Rating */}
-              <Tooltip content="Overall positive rating" theme={theme} position="top">
-                <div className="flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl bg-neutral-50/50 dark:bg-white/5 border border-divider-light dark:border-white/10" id="stat-rating-mobile">
-                  <Sparkles size={14} className="text-indigo-500 shrink-0" />
-                  <span className="text-xs font-bold font-space text-[#171717] dark:text-white truncate">
-                    {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
-                  </span>
-                </div>
-              </Tooltip>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* SECTION 2: Curation Preferences */}
-      <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10">
-        <div className="mb-6">
-          <h2 className="text-lg font-bold font-space text-[#171717] dark:text-white tracking-tight">
-            Curation Preferences
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* Inspiration styles */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-space font-semibold tracking-wider text-[#888888] dark:text-[#A9A9A9] uppercase">
-              Aesthetic Styles
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {(user.inspirationStyles || []).length > 0 ? (
-                (user.inspirationStyles || []).map((style) => (
-                  <Badge key={style} variant="primary" className="px-3 py-1.5 text-xs">
-                    {style}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-sm font-mono text-[#888888] italic">No styles indexed</span>
-              )}
-            </div>
-          </div>
-
-          {/* Formats */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-space font-semibold tracking-wider text-[#888888] dark:text-[#A9A9A9] uppercase">
-              Media Formats
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {(user.preferredFormats || []).length > 0 ? (
-                (user.preferredFormats || []).map((fmt) => (
-                  <Badge key={fmt} variant="secondary" className="px-3 py-1.5 text-xs">
-                    {fmt}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-sm font-mono text-[#888888] italic">No formats indexed</span>
-              )}
-            </div>
-          </div>
-
-          {/* Goals */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-space font-semibold tracking-wider text-[#888888] dark:text-[#A9A9A9] uppercase">
-              Curation Goals
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {(user.goals || []).length > 0 ? (
-                (user.goals || []).map((goal) => (
-                  <span key={goal} className="inline-flex items-center rounded-[6px] font-sans font-medium transition-colors px-3 py-1.5 text-xs bg-[#171717] text-[#FFFFFF] dark:bg-white/10 dark:text-white border border-transparent">
-                    {goal}
-                  </span>
-                ))
-              ) : (
-                <span className="text-sm font-mono text-[#888888] italic">No goals indexed</span>
-              )}
-            </div>
-          </div>
+      {/* Premium Dashboard Tabs Bar */}
+      <div className="w-full pt-6 mt-6">
+        <div className="flex mb-8 overflow-x-auto scrollbar-none gap-2">
+          {(["insights", "achievements", "preferences"] as const).map((tab) => {
+            const isActive = dashboardTab === tab;
+            const label = tab === "insights" ? "Design Insights" : tab === "achievements" ? "Curator Milestones" : "Curation Settings";
+            const TabIcon = tab === "insights" ? ChartBarIcon : tab === "achievements" ? TrophyIcon : AdjustmentsHorizontalIcon;
+            return (
+              <button
+                key={tab}
+                onClick={() => setDashboardTab(tab)}
+                className="relative py-3 px-5 flex items-center gap-2 text-xs font-space uppercase tracking-wider font-bold transition-all cursor-pointer text-[#888888] dark:text-[#A9A9A9] hover:text-accent dark:hover:text-white"
+              >
+                <TabIcon className={`w-3.5 h-3.5 ${isActive ? "text-accent dark:text-white" : "text-[#888888]/80"}`} />
+                <span className={isActive ? "text-[#171717] dark:text-white font-space font-black" : "font-space font-semibold"}>{label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="dashboard-tab-indicator"
+                    className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-accent"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={dashboardTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+          className="w-full"
+        >
+          {/* TAB 1: DESIGN INSIGHTS */}
+          {dashboardTab === "insights" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-space font-semibold uppercase tracking-wider text-[#888888] dark:text-[#A9A9A9]">
+                  Design Score Insights
+                </h3>
+              </div>
+
+              {isMetricsLoading ? (
+                <div className="py-8 flex items-center gap-2 text-xs font-mono text-[#888888] dark:text-[#A9A9A9] animate-pulse">
+                  <ArrowPathIcon className="w-3.5 h-3.5 animate-spin text-accent" />
+                  <span>Computing performance metrics...</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {/* Stat 1: Total Likes */}
+                  <Tooltip content="Total likes received across your published designs" theme={theme} position="top">
+                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-neutral-200/50 dark:border-white/5 hover:border-accent/20 transition-all shadow-sm">
+                      <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Likes</span>
+                        <HeartIcon className="w-4 h-4 text-[#C90023] fill-[#C90023]/20 shrink-0" />
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                        {metrics?.rightSwipes || 0}
+                      </p>
+                    </div>
+                  </Tooltip>
+
+                  {/* Stat 2: Dislikes */}
+                  <Tooltip content="Total skips or pass ratings received" theme={theme} position="top">
+                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-neutral-200/50 dark:border-white/5 hover:border-neutral-500/30 transition-all shadow-sm">
+                      <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Dislikes</span>
+                        <XMarkIcon className="w-4 h-4 text-neutral-400 shrink-0" />
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                        {Math.max(0, (metrics?.totalReviews || 0) - (metrics?.rightSwipes || 0))}
+                      </p>
+                    </div>
+                  </Tooltip>
+
+                  {/* Stat 3: Saves */}
+                  <Tooltip content="Times your designs were bookmarked to user vaults" theme={theme} position="top">
+                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-[#ECECEC] dark:border-white/5 hover:border-amber-500/30 transition-all shadow-sm">
+                      <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Saves</span>
+                        <BookmarkIcon className="w-4 h-4 text-amber-500 shrink-0" />
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                        {metrics?.saves || 0}
+                      </p>
+                    </div>
+                  </Tooltip>
+
+                  {/* Stat 4: Performance Score */}
+                  <Tooltip content="Overall positive approval score" theme={theme} position="top">
+                    <div className="p-5 rounded-2xl bg-white dark:bg-[#1E1E1E]/40 border border-neutral-200/50 dark:border-white/5 hover:border-indigo-500/30 transition-all shadow-sm">
+                      <div className="flex items-center justify-between mb-2 text-[#888888] dark:text-[#A9A9A9]">
+                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold">Overall Rating</span>
+                        <ArrowTrendingUpIcon className="w-4 h-4 text-indigo-500 shrink-0" />
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-bold font-space text-[#171717] dark:text-white leading-tight">
+                        {metrics ? `${(metrics.currentScore * 100).toFixed(0)}%` : "0%"}
+                      </p>
+                    </div>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: CURATOR MILESTONES (TIERED ACHIEVEMENTS) */}
+          {dashboardTab === "achievements" && (
+            <div className="space-y-6">
+              {isBadgesLoading ? (
+                <div className="flex items-center gap-2 py-8 text-xs font-space font-semibold text-[#888888] dark:text-[#A9A9A9]">
+                  <ArrowPathIcon className="w-3.5 h-3.5 animate-spin text-accent" />
+                  <span>Calculating tiered achievements progress...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Tier Achievements Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {badgesProgress?.map((item) => (
+                      <BadgeCard key={item.badge.id} item={item} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: CURATION SETTINGS (PREFERENCES) */}
+          {dashboardTab === "preferences" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-space font-semibold uppercase tracking-wider text-[#888888] dark:text-[#A9A9A9]">
+                  Curation Preferences
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {/* Inspiration styles */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-space font-semibold tracking-wider text-[#888888] dark:text-[#A9A9A9] uppercase">
+                    Aesthetic Styles
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(user.inspirationStyles || []).length > 0 ? (
+                      (user.inspirationStyles || []).map((style) => (
+                        <Badge key={style} variant="primary" className="px-3 py-1.5 text-xs">
+                          {style}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm font-mono text-[#888888] italic">No styles indexed</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Formats */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-space font-semibold tracking-wider text-[#888888] dark:text-[#A9A9A9] uppercase">
+                    Media Formats
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(user.preferredFormats || []).length > 0 ? (
+                      (user.preferredFormats || []).map((fmt) => (
+                        <Badge key={fmt} variant="secondary" className="px-3 py-1.5 text-xs">
+                          {fmt}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm font-mono text-[#888888] italic">No formats indexed</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Goals */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-space font-semibold tracking-wider text-[#888888] dark:text-[#A9A9A9] uppercase">
+                    Curation Goals
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(user.goals || []).length > 0 ? (
+                      (user.goals || []).map((goal) => (
+                        <span key={goal} className="inline-flex items-center rounded-[6px] font-sans font-medium transition-colors px-3 py-1.5 text-xs bg-[#171717] text-[#FFFFFF] dark:bg-white/10 dark:text-white border border-transparent">
+                          {goal}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm font-mono text-[#888888] italic">No goals indexed</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
 
 
@@ -698,7 +887,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="mt-6 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-accent/20 bg-accent/5 rounded-[24px]">
           <div>
             <div className="flex items-center gap-2 text-sm font-bold text-accent font-space uppercase tracking-wider mb-1.5">
-              <Smartphone size={18} className="animate-pulse" />
+              <DevicePhoneMobileIcon className="w-5 h-5 animate-pulse" />
               <span>INSTALL NATIVE PWA</span>
             </div>
             <p className="text-sm text-[#555555] dark:text-[#D7D7D7] leading-relaxed max-w-xl">
@@ -717,14 +906,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Account Actions */}
-      <div className="w-full border-t border-[#ECECEC] dark:border-white/10 pt-10 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="h-[1.5px] w-full bg-gradient-to-r from-transparent via-[#ECECEC] dark:via-white/10 to-transparent my-10 border-none" />
+      <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4">
         <Button
           id="dashboard-signout"
           variant="secondary"
           onClick={onLogout}
           className="w-full sm:w-auto py-3 px-8 text-[#171717] dark:text-white border-[#ECECEC] dark:border-white/10 bg-[#F7F7F8] dark:bg-white/5 hover:bg-[#ECECEC] dark:hover:bg-white/10"
         >
-          <LogOut size={16} className="mr-2" />
+          <ArrowLeftOnRectangleIcon className="w-4 h-4 mr-2 inline" />
           <span className="font-semibold text-sm">Sign Out</span>
         </Button>
         
@@ -732,12 +922,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           id="delete-account-trigger"
           onClick={handleDeleteAccount}
           disabled={isDeletingAccount}
-          className="text-xs font-mono font-medium text-[#888888] hover:text-[#C90023] underline decoration-[#C90023]/30 underline-offset-4 cursor-pointer transition-colors flex items-center gap-1.5"
+          className="text-[10px] font-sans font-bold uppercase tracking-wider text-[#888888] hover:text-[#C90023] underline decoration-[#C90023]/30 underline-offset-4 cursor-pointer transition-colors flex items-center gap-1.5"
         >
           {isDeletingAccount ? (
-            <Loader2 size={12} className="animate-spin" />
+            <ArrowPathIcon className="w-3 h-3 animate-spin" />
           ) : (
-            <AlertTriangle size={12} />
+            <ExclamationTriangleIcon className="w-3 h-3" />
           )}
           <span>Delete my account permanently</span>
         </button>
@@ -783,7 +973,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="space-y-6 flex-grow text-center py-4 w-full"
               >
                 <div className="w-12 h-12 bg-accent/10 text-accent rounded-full flex items-center justify-center mx-auto">
-                  <X size={20} className="stroke-[2.5]" />
+                  <XMarkIcon className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div className="space-y-1.5">
                   <h4 className="text-sm font-space font-bold text-[#171717] dark:text-white uppercase tracking-wider">
@@ -896,9 +1086,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                         <span>{opt.label}</span>
                         {isSelected && (
-                          <CheckCircle2
-                            size={14}
-                            className={theme === "dark" ? "text-[#121212]" : "text-accent"}
+                          <CheckCircleIcon
+                            className={`w-3.5 h-3.5 ${theme === "dark" ? "text-[#121212]" : "text-accent"}`}
                           />
                         )}
                       </button>
@@ -929,7 +1118,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onClick={() => setOffboardingStep(1)}
                     className="w-1/3 py-3 flex items-center justify-center gap-1.5"
                   >
-                    <ArrowLeft size={14} />
+                    <ArrowLeftIcon className="w-3.5 h-3.5" />
                     <span>Back</span>
                   </Button>
                   <Button
@@ -972,7 +1161,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onClick={() => setOffboardingStep(2)}
                     className="w-1/3 py-3 flex items-center justify-center gap-1.5"
                   >
-                    <ArrowLeft size={14} />
+                    <ArrowLeftIcon className="w-3.5 h-3.5" />
                     <span>Back</span>
                   </Button>
                   <Button
@@ -1017,7 +1206,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onClick={() => setOffboardingStep(3)}
                     className="w-1/3 py-3 flex items-center justify-center gap-1.5"
                   >
-                    <ArrowLeft size={14} />
+                    <ArrowLeftIcon className="w-3.5 h-3.5" />
                     <span>Back</span>
                   </Button>
                   <Button
@@ -1071,7 +1260,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {offboardingStep === 6 && (
               <div className="space-y-6 animate-fadeIn">
                 <div className="p-4 bg-[#C90023]/5 border border-[#C90023]/10 rounded-[16px] flex items-start gap-3">
-                  <AlertTriangle className="text-accent shrink-0 mt-0.5" size={18} />
+                  <ExclamationTriangleIcon className="text-accent shrink-0 mt-0.5 w-[18px] h-[18px]" />
                   <div className="space-y-1">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-accent font-space">
                       Curated Assets Wiping
@@ -1098,7 +1287,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   >
                     {isDeletingAccount ? (
                       <span className="flex items-center justify-center gap-2">
-                        <Loader2 size={14} className="animate-spin" />
+                        <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                         <span>Deleting Your Account Data...</span>
                       </span>
                     ) : (
@@ -1131,7 +1320,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {offboardingStep === 7 && (
               <div className="space-y-6 text-center py-6 animate-fadeIn">
                 <div className="relative w-20 h-20 mx-auto flex items-center justify-center bg-green-500/10 rounded-full border border-green-500/20">
-                  <Smile size={36} className="text-green-500" />
+                  <FaceSmileIcon className="w-9 h-9 text-green-500" />
                 </div>
 
                 <div className="space-y-3">
@@ -1149,7 +1338,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   >
                     {isDeletingAccount ? (
                       <span className="flex items-center justify-center gap-2">
-                        <Loader2 size={14} className="animate-spin" />
+                        <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                         <span>Completing Deletion...</span>
                       </span>
                     ) : (

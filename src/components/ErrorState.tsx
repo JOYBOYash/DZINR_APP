@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from './Button';
-import { RotateCw } from 'lucide-react';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface ErrorStateProps {
   id: string;
@@ -46,7 +46,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
           variant="secondary"
           className="w-auto px-6 py-3 flex items-center gap-2"
         >
-          <RotateCw className="h-4 w-4" strokeWidth={2} />
+          <ArrowPathIcon className="h-4 w-4 stroke-2" />
           <span>{actionText}</span>
         </Button>
       )}

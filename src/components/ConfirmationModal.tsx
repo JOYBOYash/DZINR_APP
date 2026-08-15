@@ -1,5 +1,11 @@
 import React from "react";
-import { AlertTriangle, Trash2, LogOut, X, Loader2 } from "lucide-react";
+import { 
+  ExclamationTriangleIcon, 
+  TrashIcon, 
+  ArrowLeftOnRectangleIcon, 
+  XMarkIcon, 
+  ArrowPathIcon 
+} from "@heroicons/react/24/outline";
 import { motion, AnimatePresence } from "motion/react";
 
 export interface ConfirmationModalProps {
@@ -34,12 +40,12 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   const getIcon = () => {
     switch (iconType) {
       case "logout":
-        return <LogOut size={20} className="text-red-500 shrink-0" />;
+        return <ArrowLeftOnRectangleIcon className="w-5 h-5 text-red-500 shrink-0" />;
       case "warning":
-        return <AlertTriangle size={20} className="text-amber-500 shrink-0" />;
+        return <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 shrink-0" />;
       case "trash":
       default:
-        return <Trash2 size={20} className="text-[#C90023] shrink-0" />;
+        return <TrashIcon className="w-5 h-5 text-[#C90023] shrink-0" />;
     }
   };
 
@@ -88,7 +94,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                   : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
               }`}
             >
-              <X size={18} />
+              <XMarkIcon className="w-[18px] h-[18px]" />
             </button>
 
             {/* Header Icon + Title */}
@@ -140,7 +146,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               >
                 {isLoading ? (
                   <>
-                    <Loader2 size={14} className="animate-spin" />
+                    <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                     <span>Processing...</span>
                   </>
                 ) : (

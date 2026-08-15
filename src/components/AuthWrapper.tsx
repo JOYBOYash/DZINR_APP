@@ -7,7 +7,7 @@ import { userService } from '../services/user.service';
 import { useAuthStore } from '../stores/auth.store';
 import { useOnboardingStore } from '../stores/onboarding.store';
 import { useToastStore } from '../stores/toast.store';
-import { Shield, X } from 'lucide-react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from './Button';
 
 interface AuthWrapperProps {
@@ -311,7 +311,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
                 onClick={() => setShowRetryLoginPopup(false)}
                 className="absolute top-4 right-4 p-1.5 rounded-full border border-[#ECECEC] dark:border-white/10 text-[#888888] hover:text-accent dark:hover:text-white bg-white/5 cursor-pointer"
               >
-                <X size={14} />
+                <XMarkIcon className="w-3.5 h-3.5" />
               </button>
 
               <div className="flex flex-col items-center text-center gap-5">

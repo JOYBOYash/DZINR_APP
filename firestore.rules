@@ -42,7 +42,19 @@ service cloud.firestore {
         && (data.get('emailVerified', null) == null || data.get('emailVerified', false) is bool)
         && (data.get('integrations', null) == null || data.get('integrations', {}) is map)
         && (data.get('stats', null) == null || data.get('stats', {}) is map)
+        && (data.get('earnedBadges', null) == null || data.get('earnedBadges', []) is list)
         && data.get('createdAt', '') is string && data.get('createdAt', '').size() <= 64;
+    }
+
+    // Validation Blueprint for Badges
+    function isValidBadge(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 256
+        && data.description is string && data.description.size() <= 2048
+        && data.icon is string && data.icon.size() <= 128
+        && data.color is string && data.color.size() <= 64
+        && data.thresholdType is string && data.thresholdType.size() <= 128
+        && data.thresholdValue is int;
     }
 
     // Validation Blueprint for Designs
@@ -163,6 +175,11 @@ service cloud.firestore {
 
     match /support_requests/{requestId} {
       allow read, create: if isSignedIn();
+    }
+
+    match /badges/{badgeId} {
+      allow read: if isSignedIn() && isValidId(badgeId);
+      allow create, update: if isSignedIn() && isValidBadge(incoming()) && isValidId(badgeId);
     }
   }
 }

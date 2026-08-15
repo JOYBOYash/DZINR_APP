@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from './Button';
 
 interface ModalProps {
@@ -87,7 +87,7 @@ export const Modal: React.FC<ModalProps> = ({
                 onClick={onClose}
                 className="p-1.5 rounded-full hover:bg-[#F7F7F8] dark:hover:bg-white/5 text-[#555555] dark:text-[#A9A9A9] transition-colors cursor-pointer"
               >
-                <X className="h-5 w-5" strokeWidth={2} />
+                <XMarkIcon className="h-5 w-5 stroke-2" />
               </button>
             </div>
 

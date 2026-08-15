@@ -1,6 +1,12 @@
 import React from "react";
 import { motion } from "motion/react";
-import { User, LayoutGrid, Compass, Bookmark, Plus } from "lucide-react";
+import { 
+  UserIcon, 
+  Squares2X2Icon, 
+  GlobeAltIcon, 
+  BookmarkIcon, 
+  PlusIcon 
+} from "@heroicons/react/24/outline";
 
 interface NavBarProps {
   currentPage: string;
@@ -51,7 +57,7 @@ export const NavBar: React.FC<NavBarProps> = ({
           </div>
           {/* Elegant Overlay Plus Icon badge */}
           <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-accent border border-white dark:border-[#121212] flex items-center justify-center shadow-md">
-            <Plus size={10} strokeWidth={4} className="text-white" />
+            <PlusIcon className="w-2.5 h-2.5 text-white stroke-[4]" />
           </div>
         </motion.button>
       )}
@@ -61,12 +67,12 @@ export const NavBar: React.FC<NavBarProps> = ({
           const isActive = currentPage === page;
           const Icon =
             page === "feed"
-              ? Compass
+              ? GlobeAltIcon
               : page === "saved"
-              ? Bookmark
+              ? BookmarkIcon
               : page === "profile"
-              ? User
-              : LayoutGrid;
+              ? UserIcon
+              : Squares2X2Icon;
 
           return (
             <button
@@ -81,7 +87,7 @@ export const NavBar: React.FC<NavBarProps> = ({
                     : "text-[#555555]/60 dark:text-[#D7D7D7]/60 hover:text-accent dark:hover:text-white"
                 }`}
               >
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                <Icon className={`w-5.5 h-5.5 ${isActive ? "stroke-[2.5]" : "stroke-2"}`} />
               </div>
             </button>
           );

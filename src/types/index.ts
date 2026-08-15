@@ -22,6 +22,7 @@ export interface UserProfile {
     draftCount: number;
     publishedCount: number;
   };
+  earnedBadges?: string[];
   createdAt: string;
 }
 

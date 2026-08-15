@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { Button } from './Button';
 import { Input } from './Input';
 import { USER_REVIEWS } from '../constants/reviews';
@@ -170,7 +170,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 </div>
               </div>
               <span className="text-xs font-bold tracking-tight flex items-center gap-0.5 shrink-0">
-                Go <ArrowRight size={12} />
+                Go <ArrowRightIcon className="w-3 h-3 inline" />
               </span>
             </button>
           )}

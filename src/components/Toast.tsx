@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import {
+  XMarkIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  InformationCircleIcon,
+} from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'motion/react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -36,10 +41,10 @@ function ToastItem({ toast, removeToast }: { toast: ToastMessage, removeToast: (
   }, [toast.id, removeToast]);
 
   const icons = {
-    success: <CheckCircle className="text-green-500" size={16} />,
-    error: <AlertCircle className="text-red-500" size={16} />,
-    warning: <AlertCircle className="text-amber-500" size={16} />,
-    info: <Info className="text-blue-500" size={16} />
+    success: <CheckCircleIcon className="text-green-500 w-4 h-4 shrink-0" />,
+    error: <ExclamationCircleIcon className="text-red-500 w-4 h-4 shrink-0" />,
+    warning: <ExclamationCircleIcon className="text-amber-500 w-4 h-4 shrink-0" />,
+    info: <InformationCircleIcon className="text-blue-500 w-4 h-4 shrink-0" />
   };
 
   const bgColors = {
@@ -65,6 +70,9 @@ function ToastItem({ toast, removeToast }: { toast: ToastMessage, removeToast: (
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
       className={`flex items-start gap-3 p-4 rounded-[16px] border shadow-lg backdrop-blur-md pointer-events-auto cursor-grab active:cursor-grabbing select-none ${bgColors[toast.type]}`}
     >
+      <div className="shrink-0 pt-0.5">
+        {icons[toast.type]}
+      </div>
       <div className="flex-1 text-[15px] font-sans font-medium pr-2 break-words overflow-hidden">
         {toast.message}
       </div>
@@ -72,7 +80,7 @@ function ToastItem({ toast, removeToast }: { toast: ToastMessage, removeToast: (
         onClick={() => removeToast(toast.id)}
         className="shrink-0 text-white/40 hover:text-white/80 transition-colors"
       >
-        <X size={14} />
+        <XMarkIcon className="w-4 h-4" />
       </button>
     </motion.div>
   );

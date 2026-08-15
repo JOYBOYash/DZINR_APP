@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDownIcon, CheckIcon } from "@heroicons/react/24/outline";
 
 interface SelectProps {
   label: string;
@@ -48,9 +48,8 @@ export const CategorySelector: React.FC<SelectProps> = ({
         <span className={value ? "" : "text-[#888888]"}>
           {value || `Select ${label}`}
         </span>
-        <ChevronDown
-          size={16}
-          className={`transition-transform duration-200 ${isOpen ? "rotate-180 text-accent" : "text-[#888888]"}`}
+        <ChevronDownIcon
+          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "rotate-180 text-accent" : "text-[#888888]"}`}
         />
       </button>
 
@@ -75,7 +74,7 @@ export const CategorySelector: React.FC<SelectProps> = ({
                 }`}
               >
                 <span>{opt}</span>
-                {isSelected && <Check size={14} className="text-accent" />}
+                {isSelected && <CheckIcon className="w-3.5 h-3.5 text-accent" />}
               </button>
             );
           })}

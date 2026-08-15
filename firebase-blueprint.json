@@ -26,6 +26,11 @@
           "type": "object",
           "description": "User engagement stats metrics"
         },
+        "earnedBadges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Cached list of earned badge IDs"
+        },
         "createdAt": { "type": "string" }
       },
       "required": [
@@ -199,6 +204,21 @@
         "message": { "type": "string" },
         "createdAt": { "type": "string" }
       }
+    },
+    "badges": {
+      "title": "badges",
+      "description": "Master list of community badges and achievements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "thresholdType": { "type": "string" },
+        "thresholdValue": { "type": "number" }
+      },
+      "required": ["id", "name", "description", "icon", "color", "thresholdType", "thresholdValue"]
     }
   },
   "firestore": {
@@ -241,6 +261,10 @@
     "support_requests/{requestId}": {
       "schema": "support_requests",
       "description": "Support requests"
+    },
+    "badges/{badgeId}": {
+      "schema": "badges",
+      "description": "A badge definition specifying earning criteria"
     }
   }
 }

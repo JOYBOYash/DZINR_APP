@@ -1,43 +1,30 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "motion/react";
 import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Bookmark, 
-  RefreshCw, 
-  Sparkles, 
-  HelpCircle, 
-  Laptop, 
-  Heart, 
-  X, 
-  ZoomIn,
-  Move,
-  Palette, 
-  Layers, 
-  Compass, 
-  Feather, 
-  PenTool, 
-  Eye, 
-  Component, 
-  Triangle, 
-  Crown, 
-  Gem, 
-  Box, 
-  Grid, 
-  Aperture, 
-  Maximize2,
-  Command,
-  Shapes,
-  Paintbrush,
-  Figma,
-  Contrast,
-  SwatchBook,
-  Pipette,
-  Spline,
-  Crop,
-  Frame,
-  Ruler
-} from "lucide-react";
+  ArrowLeftIcon, 
+  ArrowRightIcon, 
+  BookmarkIcon, 
+  ArrowPathIcon, 
+  TrophyIcon, 
+  QuestionMarkCircleIcon, 
+  ComputerDesktopIcon, 
+  HeartIcon, 
+  XMarkIcon, 
+  MagnifyingGlassPlusIcon, 
+  ArrowsPointingOutIcon,
+  PaintBrushIcon, 
+  Square2StackIcon, 
+  GlobeAltIcon, 
+  PencilIcon, 
+  PencilSquareIcon, 
+  EyeIcon, 
+  CpuChipIcon, 
+  SparklesIcon, 
+  PhotoIcon, 
+  DocumentDuplicateIcon, 
+  AdjustmentsHorizontalIcon, 
+  WrenchScrewdriverIcon
+} from "@heroicons/react/24/outline";
 import { UserProfile } from "../types";
 import { Design } from "../services/design.service";
 import { discoveryService } from "../services/discovery.service";
@@ -55,18 +42,16 @@ const AmbientBackgroundMarquee: React.FC<AmbientBackgroundMarqueeProps> = ({ the
   // Generate stable particles on mount
   const particles = React.useMemo(() => {
     const iconList = [
-      { icon: Palette },
-      { icon: Layers },
-      { icon: Compass },
-      { icon: Feather },
-      { icon: PenTool },
-      { icon: Shapes },
-      { icon: Paintbrush },
-      { icon: Figma },
-      { icon: SwatchBook },
-      { icon: Pipette },
-      { icon: Spline },
-      { icon: Frame },
+      { icon: PaintBrushIcon },
+      { icon: Square2StackIcon },
+      { icon: GlobeAltIcon },
+      { icon: PencilIcon },
+      { icon: PencilSquareIcon },
+      { icon: SparklesIcon },
+      { icon: PhotoIcon },
+      { icon: DocumentDuplicateIcon },
+      { icon: AdjustmentsHorizontalIcon },
+      { icon: WrenchScrewdriverIcon },
     ];
 
     const tempParticles = [];
@@ -270,6 +255,8 @@ const DiscoveryCard = React.memo(({
   onDesignerProfile,
 }: DiscoveryCardProps) => {
   const isTopCard = index === 0;
+  const isDraggingRef = React.useRef(false);
+  const pointerDownPosRef = React.useRef<{ x: number; y: number } | null>(null);
 
   // Encapsulated motion values per card to avoid state leakages and stuck indicators
   const x = useMotionValue(0);
@@ -289,6 +276,14 @@ const DiscoveryCard = React.memo(({
         drag: true as const,
         dragSnapToOrigin: true,
         dragElastic: 0.8,
+        onPointerDown: (e: any) => {
+          const clientX = e.clientX ?? (e.touches?.[0]?.clientX) ?? 0;
+          const clientY = e.clientY ?? (e.touches?.[0]?.clientY) ?? 0;
+          pointerDownPosRef.current = { x: clientX, y: clientY };
+        },
+        onDragStart: () => {
+          isDraggingRef.current = true;
+        },
         onDragEnd: (e: any, info: any) => {
           const thresholdX = 120;
           const thresholdY = -100;
@@ -302,6 +297,11 @@ const DiscoveryCard = React.memo(({
           } else if (info.offset.x < -thresholdX || velocityX < -300) {
             handleSwipe("left", card.id);
           }
+          
+          // Clear dragging state after a tiny delay so click handlers can check it
+          setTimeout(() => {
+            isDraggingRef.current = false;
+          }, 100);
         },
         animate: { opacity: 1, scale: 1 },
       }
@@ -398,8 +398,28 @@ const DiscoveryCard = React.memo(({
 
       {/* 1. Large Hero Design Preview - Click to Expand Area */}
       <div
-        onClick={(e) => {
+        onClick={(e: any) => {
           if (isTopCard) {
+            let clickedDistance = 0;
+            if (pointerDownPosRef.current) {
+              const clientX = e.clientX ?? (e.touches?.[0]?.clientX) ?? 0;
+              const clientY = e.clientY ?? (e.touches?.[0]?.clientY) ?? 0;
+              
+              if (clientX !== 0 || clientY !== 0) {
+                const dx = clientX - pointerDownPosRef.current.x;
+                const dy = clientY - pointerDownPosRef.current.y;
+                clickedDistance = Math.sqrt(dx * dx + dy * dy);
+              }
+            }
+
+            const dragDistance = Math.sqrt(x.get() * x.get() + y.get() * y.get());
+            
+            // SWIPE_TAP_THRESHOLD is the swipe threshold setting to prevent small tap movements from triggering expands
+            const SWIPE_TAP_THRESHOLD = 15;
+
+            if (isDraggingRef.current || dragDistance > SWIPE_TAP_THRESHOLD || clickedDistance > SWIPE_TAP_THRESHOLD) {
+              return;
+            }
             onExpand();
           }
         }}
@@ -431,7 +451,7 @@ const DiscoveryCard = React.memo(({
           className="absolute top-4 right-4 z-30 w-11 h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:text-amber-400 hover:bg-black/80 cursor-pointer transition-colors shadow-lg"
           title="Save as Inspiration"
         >
-          <Bookmark size={20} />
+          <BookmarkIcon className="w-5 h-5" />
         </button>
       )}
 
@@ -443,7 +463,7 @@ const DiscoveryCard = React.memo(({
             style={{ opacity: likeIndicatorOpacity }}
             className="absolute top-8 left-8 z-30 w-16 h-16 rounded-full bg-emerald-500/95 text-white flex items-center justify-center shadow-lg border border-emerald-400/20 backdrop-blur-md pointer-events-none"
           >
-            <Heart size={30} fill="currentColor" />
+            <HeartIcon className="w-[30px] h-[30px] fill-current" />
           </motion.div>
 
           {/* NEXT/DISLIKE BADGE (X) */}
@@ -451,7 +471,7 @@ const DiscoveryCard = React.memo(({
             style={{ opacity: nopeIndicatorOpacity }}
             className="absolute top-8 right-8 z-30 w-16 h-16 rounded-full bg-rose-500/95 text-white flex items-center justify-center shadow-lg border border-rose-400/20 backdrop-blur-md pointer-events-none"
           >
-            <X size={30} className="stroke-[2.5]" />
+            <XMarkIcon className="w-[30px] h-[30px] stroke-[2.5]" />
           </motion.div>
 
           {/* SAVE BADGE (Bookmark) */}
@@ -460,7 +480,7 @@ const DiscoveryCard = React.memo(({
             className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
           >
             <div className="w-20 h-20 rounded-full bg-amber-500/95 text-white flex items-center justify-center shadow-2xl border border-amber-400/20 backdrop-blur-md">
-              <Bookmark size={36} fill="currentColor" />
+              <BookmarkIcon className="w-9 h-9 fill-current" />
             </div>
           </motion.div>
         </>
@@ -495,7 +515,7 @@ const DiscoveryCard = React.memo(({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <Laptop size={18} className="text-neutral-400" />
+              <ComputerDesktopIcon className="w-[18px] h-[18px] text-neutral-400" />
             )}
           </div>
           <div className="flex flex-col">
@@ -1147,7 +1167,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
               onClick={() => fetchFeedBatch(true)}
               className="w-full py-3 px-6 text-sm font-semibold flex items-center justify-center gap-2"
             >
-              <RefreshCw size={15} />
+              <ArrowPathIcon className="w-[15px] h-[15px]" />
               <span>{isConnectionError ? "Retry Connection" : "Refresh Feed"}</span>
             </Button>
 
@@ -1197,7 +1217,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
               <div className={`mb-4 text-xs font-mono flex items-center gap-2 animate-pulse ${
                 theme === "dark" ? "text-white" : "text-accent"
               }`}>
-                <RefreshCw size={12} className="animate-spin" />
+                <ArrowPathIcon className="w-3 h-3 animate-spin" />
                 <span>Synchronizing offline reviews with cloud...</span>
               </div>
             )}
@@ -1246,7 +1266,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                   }`}
                   title="Gestures Tutorial"
                 >
-                  <HelpCircle size={18} className="text-accent" />
+                  <QuestionMarkCircleIcon className="w-4.5 h-4.5 text-accent" />
                 </button>
               ) : (
                 <button
@@ -1261,7 +1281,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                   }`}
                   title="Show Feed Gestures Tutorial"
                 >
-                  <HelpCircle size={15} className="text-accent" />
+                  <QuestionMarkCircleIcon className="w-[15px] h-[15px] text-accent" />
                   <span>Gestures Guide</span>
                 </button>
               )}
@@ -1309,7 +1329,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                   className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors border border-white/10 shadow-lg cursor-pointer"
                   title="Close preview"
                 >
-                  <X size={20} />
+                  <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -1325,12 +1345,12 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                   className="absolute top-24 left-1/2 -translate-x-1/2 z-[130] pointer-events-none flex flex-col sm:flex-row items-center gap-2 sm:gap-4 px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-neutral-900/95 dark:bg-white/95 text-white dark:text-neutral-900 shadow-xl backdrop-blur-md border border-white/10 dark:border-black/10 min-w-[100px] sm:min-w-0"
                 >
                   <div className="flex items-center gap-2">
-                    <ZoomIn size={14} className="text-accent animate-pulse" />
+                    <MagnifyingGlassPlusIcon className="w-3.5 h-3.5 text-accent animate-pulse" />
                     <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Scroll</span>
                   </div>
                   <div className="hidden sm:block h-4 w-px bg-white/20 dark:bg-neutral-300" />
                   <div className="flex items-center gap-2">
-                    <Move size={14} className="text-accent animate-pulse" />
+                    <ArrowsPointingOutIcon className="w-3.5 h-3.5 text-accent animate-pulse" />
                     <span className="text-[11px] font-sans font-semibold tracking-wide uppercase">Pan</span>
                   </div>
                 </motion.div>
@@ -1441,7 +1461,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
               {/* Visual Demo Slot */}
               {onboardingStep === 0 && (
                 <div className="w-24 h-24 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-6 animate-pulse">
-                  <Sparkles size={40} />
+                  <PaintBrushIcon className="w-10 h-10" />
                 </div>
               )}
 
@@ -1460,7 +1480,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                         : "bg-white border-neutral-200"
                     }`}
                   >
-                    <X size={12} />
+                    <XMarkIcon className="w-3 h-3" />
                     <span>Skip</span>
                   </motion.div>
                 </div>
@@ -1481,7 +1501,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                         : "bg-white border-neutral-200"
                     }`}
                   >
-                    <Heart size={11} className="fill-emerald-400/20" />
+                    <HeartIcon className="w-3 h-3 fill-emerald-400/20" />
                     <span>Like</span>
                   </motion.div>
                 </div>
@@ -1502,7 +1522,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
                         : "bg-white border-neutral-200"
                     }`}
                   >
-                    <ZoomIn size={14} className="mb-0.5" />
+                    <MagnifyingGlassPlusIcon className="w-3.5 h-3.5 mb-0.5" />
                     <span>Zoom</span>
                   </motion.div>
                 </div>
@@ -1576,7 +1596,7 @@ export const DiscoveryFeedView: React.FC<DiscoveryFeedViewProps> = ({
             }`}
           >
             <div className="w-10 h-10 shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Sparkles size={18} className="animate-pulse" />
+              <TrophyIcon className="w-[18px] h-[18px] animate-pulse" />
             </div>
             <div className="flex-1 text-left">
               <h4 className={`text-xs font-space font-bold uppercase tracking-wider ${

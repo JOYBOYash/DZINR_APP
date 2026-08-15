@@ -60,12 +60,46 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
   const [showCoverSelector, setShowCoverSelector] = useState(false);
   const [updatingCover, setUpdatingCover] = useState(false);
 
+  // Achievements state
+  const [badges, setBadges] = useState<any[]>([]);
+  const [badgesLoading, setBadgesLoading] = useState(false);
+
   // Reset lightbox and active boards when designerId changes
   useEffect(() => {
     setLightboxDesign(null);
     setSelectedMoodboard(null);
     setActiveTab("projects");
+    setBadges([]);
   }, [designerId]);
+
+  // Load designer achievements
+  useEffect(() => {
+    if (!show || !designerId) return;
+    
+    let active = true;
+    setBadgesLoading(true);
+
+    const fetchUserBadges = async () => {
+      try {
+        const { badgeService } = await import("../services/badge.service");
+        const progress = await badgeService.calculateUserBadges(designerId, profile || { id: designerId });
+        if (active) {
+          const unlocked = progress.filter(p => p.highestUnlockedTier !== null).map(p => p.badge);
+          setBadges(unlocked);
+        }
+      } catch (err) {
+        console.warn("Failed to load designer badges:", err);
+      } finally {
+        if (active) setBadgesLoading(false);
+      }
+    };
+
+    if (profile) {
+      fetchUserBadges();
+    }
+
+    return () => { active = false; };
+  }, [show, designerId, profile]);
 
   // Current logged in user ID
   const currentUserId = auth.currentUser?.uid;
@@ -454,6 +488,32 @@ export const DesignerProfileModal: React.FC<DesignerProfileModalProps> = ({
                   }`}>
                     {profile.bio || "Crafting elegant digital layouts and visual mockups."}
                   </p>
+
+                  {/* Dynamic Earned Badges Row */}
+                  {badges.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3.5">
+                      {badges.map((b) => {
+                        const badgeColors: Record<string, string> = {
+                          emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+                          indigo: "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400",
+                          rose: "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400",
+                          amber: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
+                          cyan: "bg-cyan-500/10 border-cyan-500/20 text-cyan-600 dark:text-cyan-400",
+                        };
+                        const colorClass = badgeColors[b.color] || badgeColors.indigo;
+
+                        return (
+                          <div
+                            key={b.id}
+                            className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-sm uppercase tracking-wide cursor-help ${colorClass}`}
+                            title={b.description}
+                          >
+                            <span>🏆 {b.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 

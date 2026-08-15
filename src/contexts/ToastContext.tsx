@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 type ToastType = 'error' | 'success' | 'info';
 
@@ -64,7 +64,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 onClick={() => hideToast(toast.id)}
                 className="opacity-70 hover:opacity-100 transition-opacity ml-4"
               >
-                <X size={16} />
+                <XMarkIcon className="w-4 h-4" />
               </button>
             </motion.div>
           ))}
